@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Save, Send, Trash2, Calendar, Tag, ArrowLeft } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
-import ImageUpload from './ImageUpload';
+import ImageUpload from './imageUpload';
 
 interface ContentFormProps {
   content?: any;

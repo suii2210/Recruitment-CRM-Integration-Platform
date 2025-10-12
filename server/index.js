@@ -8,11 +8,9 @@ import connectDB from './config/database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import roleRoutes from './routes/roles.js';
-import blogRoutes from './routes/blogs.js';
 import contentRoutes from './routes/contentCreation.js';
 import permissionRoutes from './routes/permissions.js';
 import uploadRoutes from './routes/upload.js';
-import authorRoutes from './routes/author.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultData } from './utils/initializeData.js';
 import homeContentRoutes from './routes/homeContent.js';
@@ -86,12 +84,10 @@ app.use('/uploads', express.static(uploadsDir));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
-app.use('/api/blogs', blogRoutes);
 app.use('/api/contents', contentRoutes);
 app.use('/api/home-contents', homeContentRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/authors', authorRoutes);
 
 
 

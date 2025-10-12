@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Globe, TrendingUp, DollarSign, Users, MoreHorizontal, LogOut } from 'lucide-react';
 import Sidebar from './components/Sidebar';
-import BlogManagement from './components/blog/BlogManagement';
 import ContentManagement from './components/contentCreation/ContentManagement';
 import UserManagement from './components/users/UserManagement';
 import RoleManagement from './components/roles/RoleManagement';
@@ -13,7 +12,6 @@ import RealTimeStats from './components/dashboard/RealTimeStats';
 import RecentActivity from './components/dashboard/RecentActivity';
 import LiveChart from './components/dashboard/LiveChart';
 import { useUserStore } from './store/userStore';
-import { useBlogStore } from './store/blogStore';
 import { useContentStore } from './store/contentStore';
 import { useProfileStore } from './store/profileStore';
 import { useDashboardStore } from './store/dashboardStore';
@@ -35,7 +33,6 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   
   const { currentUser, isAuthenticated, logout, hasPermission, checkAuth } = useUserStore();
-  const { setCurrentUser } = useBlogStore();
   const { setCurrentUser: setContentUser } = useContentStore();
   const { preferences, initializePreferences } = useProfileStore();
   const { startRealTimeUpdates, stopRealTimeUpdates } = useDashboardStore();
@@ -52,13 +49,12 @@ function App() {
     }
   }, [currentUser, initializePreferences]);
 
-  // Sync current user with blog and content stores
+  // Sync current user with content store
   useEffect(() => {
     if (currentUser) {
-      setCurrentUser(currentUser);
       setContentUser(currentUser);
     }
-  }, [currentUser, setCurrentUser, setContentUser]);
+  }, [currentUser, setContentUser]);
 
   // Apply theme to document
   useEffect(() => {
@@ -98,7 +94,6 @@ function App() {
     // Check permissions for restricted pages only
     if (!publicPages.includes(page)) {
       const permissionMap: { [key: string]: string } = {
-        'blogs': 'blogs.view',
         'contents': 'contents.view',
         'home': 'home-contents.view',
         'users': 'users.view',
@@ -159,8 +154,6 @@ function App() {
 
   const renderCurrentPage = () => {
     switch (currentPage) {
-      case 'blogs':
-        return <BlogManagement />;
       case 'contents':
         return <ContentManagement />;
       case 'home':

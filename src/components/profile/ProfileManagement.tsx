@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { useProfileStore } from '../../store/profileStore';
-import ImageUpload from '../blog/ImageUpload';
+import AvatarUpload from './AvatarUpload';
 
 interface ProfileManagementProps {
   onBack: () => void;
@@ -285,7 +285,7 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ onBack }) => {
                     </div>
                   )}
                   <div className="absolute bottom-0 right-0">
-                    <ImageUpload
+                    <AvatarUpload
                       onImageSelect={handleAvatarUpload}
                       currentImage={(currentUser as any).avatar}
                     />
