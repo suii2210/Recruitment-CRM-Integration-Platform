@@ -1,7 +1,6 @@
 import User from '../models/User.js';
 import Role from '../models/Role.js';
 import Permission from '../models/Permission.js';
-import Author from '../models/Author.js';
 
 // Default permissions
 const defaultPermissions = [
@@ -13,15 +12,6 @@ const defaultPermissions = [
   { id: 'chat.view', name: 'View Chat', description: 'Access to chat section', category: 'Apps & Pages' },
   { id: 'calendar.view', name: 'View Calendar', description: 'Access to calendar section', category: 'Apps & Pages' },
   { id: 'kanban.view', name: 'View Kanban', description: 'Access to kanban section', category: 'Apps & Pages' },
-  { id: 'authors.view', name: 'View Authors', description: 'Access to author section', category: 'Apps & Pages' },
-  { id: 'authors.create', name: 'Create Authors', description: 'Create new authors', category: 'Apps & Pages' },
-  { id: 'authors.edit', name: 'Edit Authors', description: 'Edit existing authors', category: 'Apps & Pages' },
-  { id: 'authors.delete', name: 'Delete Authors', description: 'Delete authors', category: 'Apps & Pages' },
-  { id: 'blogs.view', name: 'View Blogs', description: 'Access to blog section', category: 'Apps & Pages' },
-  { id: 'blogs.create', name: 'Create Blogs', description: 'Create new blog posts', category: 'Apps & Pages' },
-  { id: 'blogs.edit', name: 'Edit Blogs', description: 'Edit existing blog posts', category: 'Apps & Pages' },
-  { id: 'blogs.delete', name: 'Delete Blogs', description: 'Delete blog posts', category: 'Apps & Pages' },
-  { id: 'blogs.publish', name: 'Publish Blogs', description: 'Publish blog posts', category: 'Apps & Pages' },
   { id: 'contents.view', name: 'View Contents', description: 'Access to content section', category: 'Apps & Pages' },
   { id: 'contents.create', name: 'Create Contents', description: 'Create new content pages', category: 'Apps & Pages' },
   { id: 'contents.edit', name: 'Edit Contents', description: 'Edit existing content pages', category: 'Apps & Pages' },
@@ -71,11 +61,10 @@ const defaultRoles = [
     name: 'Admin',
     description: 'Administrative access with user management',
     permissions: [
-      'dashboard.view', 'blogs.view', 'blogs.create', 'blogs.edit', 'blogs.delete', 'blogs.publish',
+      'dashboard.view',
       'contents.view', 'contents.create', 'contents.edit', 'contents.delete', 'contents.publish',
       'home-contents.view', 'home-contents.create', 'home-contents.edit', 'home-contents.delete', 'home-contents.publish', 'home-contents.feature',
       'users.view', 'users.create', 'users.edit', 'roles.view', 'reports.view', 'analytics.view',
-      'authors.view', 'authors.create', 'authors.edit', 'authors.delete',
       'settings.view', 'notifications.view'
     ],
     isDefault: true
@@ -84,10 +73,9 @@ const defaultRoles = [
     name: 'Editor',
     description: 'Content management and editing capabilities',
     permissions: [
-      'dashboard.view', 'blogs.view', 'blogs.create', 'blogs.edit',
+      'dashboard.view',
       'contents.view', 'contents.create', 'contents.edit',
       'home-contents.view', 'home-contents.create', 'home-contents.edit',
-      'authors.view',
       'reports.view', 'news.view', 'news.manage'
     ],
     isDefault: true
@@ -96,7 +84,7 @@ const defaultRoles = [
     name: 'Author',
     description: 'Basic content creation capabilities',
     permissions: [
-      'dashboard.view', 'blogs.view', 'blogs.create',
+      'dashboard.view',
       'contents.view', 'contents.create',
       'home-contents.view', 'home-contents.create'
     ],
@@ -106,7 +94,7 @@ const defaultRoles = [
     name: 'Viewer',
     description: 'Read-only access to content',
     permissions: [
-      'dashboard.view', 'blogs.view', 'contents.view', 'home-contents.view', 'reports.view'
+      'dashboard.view', 'contents.view', 'home-contents.view', 'reports.view'
     ],
     isDefault: true
   }

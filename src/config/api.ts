@@ -27,15 +27,7 @@ export const API_ENDPOINTS = {
     BASE: `${API_BASE_URL}/roles`,
     BY_ID: (id: string) => `${API_BASE_URL}/roles/${id}`,
   },
-  
-  // Blogs
-  BLOGS: {
-    BASE: `${API_BASE_URL}/blogs`,
-    BY_ID: (id: string) => `${API_BASE_URL}/blogs/${id}`,
-    PUBLISH: (id: string) => `${API_BASE_URL}/blogs/${id}/publish`,
-    REJECT: (id: string) => `${API_BASE_URL}/blogs/${id}/reject`,
-  },
-  
+
   // Contents
   CONTENTS: {
     BASE: `${API_BASE_URL}/contents`,
