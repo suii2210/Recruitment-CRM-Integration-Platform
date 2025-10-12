@@ -28,6 +28,16 @@ export const API_ENDPOINTS = {
     BY_ID: (id: string) => `${API_BASE_URL}/roles/${id}`,
   },
 
+  // Blogs
+  BLOGS: {
+    BASE: `${API_BASE_URL}/blogs`,
+    BY_ID: (id: string) => `${API_BASE_URL}/blogs/${id}`,
+    BY_SLUG: (slug: string) => `${API_BASE_URL}/blogs/slug/${slug}`,
+    PUBLISH: (id: string) => `${API_BASE_URL}/blogs/${id}/publish`,
+    UNPUBLISH: (id: string) => `${API_BASE_URL}/blogs/${id}/unpublish`,
+    VIEW: (id: string) => `${API_BASE_URL}/blogs/${id}/view`,
+  },
+
   // Contents
   CONTENTS: {
     BASE: `${API_BASE_URL}/contents`,

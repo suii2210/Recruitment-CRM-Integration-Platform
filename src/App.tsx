@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Globe, TrendingUp, DollarSign, Users, MoreHorizontal, LogOut } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import BlogManagement from './components/blog/BlogManagement';
 import ContentManagement from './components/contentCreation/ContentManagement';
 import UserManagement from './components/users/UserManagement';
 import RoleManagement from './components/roles/RoleManagement';
@@ -94,6 +95,7 @@ function App() {
     // Check permissions for restricted pages only
     if (!publicPages.includes(page)) {
       const permissionMap: { [key: string]: string } = {
+        'blogs': 'blogs.view',
         'contents': 'contents.view',
         'home': 'home-contents.view',
         'users': 'users.view',
@@ -154,6 +156,8 @@ function App() {
 
   const renderCurrentPage = () => {
     switch (currentPage) {
+      case 'blogs':
+        return <BlogManagement />;
       case 'contents':
         return <ContentManagement />;
       case 'home':

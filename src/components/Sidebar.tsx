@@ -1,10 +1,11 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   Layers,
   FileText,
-  Mail, 
-  MessageCircle, 
+  FileEdit,
+  Mail,
+  MessageCircle,
   Calendar,
   Kanban,
   CheckSquare, 
@@ -59,6 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage = 'dashb
     { icon: MessageCircle, label: 'Chat', page: 'chat', active: currentPage === 'chat' },
     { icon: Calendar, label: 'Calendar', page: 'calendar' },
     { icon: Kanban, label: 'Kanban', page: 'kanban' },
+    { icon: FileEdit, label: 'Blogs', page: 'blogs', active: currentPage === 'blogs' },
     { icon: Home, label: 'Home Content', page: 'home', active: currentPage === 'home' },
     { icon: LayoutTemplate, label: 'Content Creation', page: 'contents', active: currentPage === 'contents' },
     { icon: CheckSquare, label: 'Tasks', page: 'tasks' },
