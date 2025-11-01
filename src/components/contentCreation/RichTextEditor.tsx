@@ -44,76 +44,76 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       <style jsx global>{`
         .ql-editor {
           min-height: 300px;
-          background-color: #334155;
-          color: #f1f5f9;
-          border-radius: 0.5rem;
+          background-color: #0d0e0a;
+          color: #d1d5db;
+          border-radius: 0.75rem;
         }
         
         .ql-toolbar {
-          background-color: #475569;
-          border-top-left-radius: 0.5rem;
-          border-top-right-radius: 0.5rem;
-          border: 1px solid #475569;
+          background-color: #15170f;
+          border-top-left-radius: 0.75rem;
+          border-top-right-radius: 0.75rem;
+          border: 1px solid #1f2937;
         }
         
         .ql-container {
-          border-bottom-left-radius: 0.5rem;
-          border-bottom-right-radius: 0.5rem;
-          border: 1px solid #475569;
+          border-bottom-left-radius: 0.75rem;
+          border-bottom-right-radius: 0.75rem;
+          border: 1px solid #1f2937;
           border-top: none;
         }
         
         .ql-toolbar .ql-stroke {
           fill: none;
-          stroke: #cbd5e1;
+          stroke: #9ca3af;
         }
         
         .ql-toolbar .ql-fill {
-          fill: #cbd5e1;
+          fill: #9ca3af;
           stroke: none;
         }
         
         .ql-toolbar .ql-picker-label {
-          color: #cbd5e1;
+          color: #9ca3af;
         }
         
         .ql-toolbar button:hover,
         .ql-toolbar button:focus {
-          color: #ef4444;
+          color: #22d3ee;
         }
         
         .ql-toolbar button.ql-active {
-          color: #ef4444;
+          color: #22d3ee;
         }
         
         .ql-editor.ql-blank::before {
-          color: #94a3b8;
+          color: #6b7280;
           font-style: italic;
         }
         
         .ql-editor h1, .ql-editor h2, .ql-editor h3, .ql-editor h4, .ql-editor h5, .ql-editor h6 {
-          color: #f1f5f9;
+          color: #f3f4f6;
         }
         
         .ql-editor blockquote {
-          border-left: 4px solid #ef4444;
-          background-color: #1e293b;
+          border-left: 4px solid #22d3ee;
+          background-color: #15170f;
           padding: 1rem;
           margin: 1rem 0;
         }
         
         .ql-editor code {
-          background-color: #1e293b;
-          color: #f1f5f9;
+          background-color: #15170f;
+          color: #d1d5db;
           padding: 0.25rem 0.5rem;
           border-radius: 0.25rem;
         }
         
         .ql-editor pre {
-          background-color: #1e293b;
-          color: #f1f5f9;
+          background-color: #15170f;
+          color: #d1d5db;
           padding: 1rem;
-          border-radius: 0.5rem;
+          border-radius: 0.75rem;
           overflow-x: auto;
         }
       `}</style>

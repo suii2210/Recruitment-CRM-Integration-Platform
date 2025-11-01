@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Globe, TrendingUp, DollarSign, Users, MoreHorizontal, LogOut } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import BlogManagement from './components/blog/BlogManagement';
 import ContentManagement from './components/contentCreation/ContentManagement';
@@ -9,25 +9,16 @@ import ChatSystem from './components/chat/ChatSystem';
 import LoginForm from './components/auth/LoginForm';
 import ProfileDropdown from './components/profile/ProfileDropdown';
 import ProfileManagement from './components/profile/ProfileManagement';
-import RealTimeStats from './components/dashboard/RealTimeStats';
-import RecentActivity from './components/dashboard/RecentActivity';
-import LiveChart from './components/dashboard/LiveChart';
+import SalesCards from './components/SalesCards';
+import LevelChart from './components/LevelChart';
+import TopProducts from './components/TopProducts';
+import CustomerFulfillment from './components/CustomerFulfillment';
+import ClickSpark from './components/ClickSpark';
 import { useUserStore } from './store/userStore';
 import { useContentStore } from './store/contentStore';
 import { useProfileStore } from './store/profileStore';
 import { useDashboardStore } from './store/dashboardStore';
-
 import HomeContentManagement from './components/homeContentCreation/HomeContentManagement';
-
-
-
-
-
-
-
-
-
-
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -57,23 +48,6 @@ function App() {
     }
   }, [currentUser, setContentUser]);
 
-  // Apply theme to document
-  useEffect(() => {
-    const theme = preferences?.theme || 'dark';
-    const html = document.documentElement;
-    
-    // Remove existing theme classes
-    html.classList.remove('light', 'dark');
-    
-    // Add new theme class
-    html.classList.add(theme);
-    
-    // Also set data attribute for better CSS targeting
-    html.setAttribute('data-theme', theme);
-    
-    console.log('Theme applied:', theme); // Debug log
-  }, [preferences?.theme]);
-
   // Start/stop real-time updates based on authentication and current page
   useEffect(() => {
     if (isAuthenticated && currentPage === 'dashboard') {
@@ -100,37 +74,6 @@ function App() {
         'home': 'home-contents.view',
         'users': 'users.view',
         'roles': 'roles.view',
-        'email': 'email.view',
-        'calendar': 'calendar.view',
-        'kanban': 'kanban.view',
-        'tasks': 'tasks.view',
-        'invoice': 'invoice.view',
-        'reports': 'reports.view',
-        'analytics': 'analytics.view',
-        'performance': 'performance.view',
-        'data': 'data.view',
-        'settings': 'settings.view',
-        'notifications': 'notifications.view',
-        'security': 'security.view',
-        'help': 'help.view',
-        'news-home': 'news.view',
-        'live-tv': 'news.view',
-        'videos': 'news.view',
-        'world': 'news.view',
-        'viral': 'news.view',
-        'latest': 'news.view',
-        'india': 'news.view',
-        'stories': 'news.view',
-        'science': 'news.view',
-        'opinion': 'news.view',
-        'entertainment': 'news.view',
-        'defence': 'news.view',
-        'sport': 'news.view',
-        'education': 'news.view',
-        'election': 'news.view',
-        'health': 'news.view',
-        'tech': 'news.view',
-        'initiatives': 'news.view'
       };
 
       const requiredPermission = permissionMap[page];
@@ -174,18 +117,17 @@ function App() {
       default:
         return (
           <div className="p-6">
-            {/* Real-time Stats */}
-            <RealTimeStats />
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-              {/* Live Chart - Spans 2 columns */}
-              <div className="lg:col-span-2">
-                <LiveChart />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Left Section - Takes 2 columns */}
+              <div className="xl:col-span-2 space-y-6">
+                <SalesCards />
+                <TopProducts />
               </div>
-              
-              {/* Recent Activity */}
-              <div className="lg:col-span-1">
-                <RecentActivity />
+
+              {/* Right Section - Takes 1 column */}
+              <div className="space-y-6">
+                <LevelChart />
+                <CustomerFulfillment />
               </div>
             </div>
           </div>
@@ -199,50 +141,52 @@ function App() {
   }
 
   return (
-    <div className="h-screen bg-slate-900 dark:bg-slate-900 light:bg-gray-50 flex overflow-hidden">
-      {/* Sidebar - Fixed height with independent scroll */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)}
-        currentPage={currentPage}
-        onNavigate={handleNavigation}
-      />
-      
-      {/* Main Content Area - Fixed height with independent scroll */}
-      <div className="flex-1 flex flex-col lg:ml-0 overflow-hidden">
-        {/* Header - Fixed at top */}
-        <header className="bg-slate-800 dark:bg-slate-800 light:bg-white border-b border-slate-700 dark:border-slate-700 light:border-gray-200 px-6 py-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-lg bg-slate-700 dark:bg-slate-700 light:bg-gray-100 text-slate-300 dark:text-slate-300 light:text-gray-600 hover:bg-slate-600 dark:hover:bg-slate-600 light:hover:bg-gray-200 transition-colors"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <h1 className="text-xl font-semibold text-white dark:text-white light:text-gray-900 capitalize">
-                {currentPage === 'dashboard' ? 'Dashboard' : 
-                 currentPage === 'profile' ? 'Profile Management' :
-                 currentPage === 'chat' ? 'Messages' :
-                 currentPage.replace('-', ' ')}
-              </h1>
+    <ClickSpark sparkColor="#22d3ee" sparkCount={6} sparkRadius={20}>
+      <div className="h-screen bg-[#0d0e0a] flex overflow-hidden">
+        {/* Sidebar - Fixed height with independent scroll */}
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)}
+          currentPage={currentPage}
+          onNavigate={handleNavigation}
+        />
+        
+        {/* Main Content Area - Fixed height with independent scroll */}
+        <div className="flex-1 flex flex-col lg:ml-0 overflow-hidden">
+          {/* Header - Fixed at top */}
+          <header className="bg-[#15170f] border-b border-gray-800 px-6 py-4 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden p-2 rounded-lg bg-[#0d0e0a] text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <h1 className="text-xl font-semibold text-white capitalize">
+                  {currentPage === 'dashboard' ? 'Dashboard' : 
+                   currentPage === 'profile' ? 'Profile Management' :
+                   currentPage === 'chat' ? 'Messages' :
+                   currentPage.replace('-', ' ')}
+                </h1>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <ProfileDropdown 
+                  onProfileClick={handleProfileClick}
+                  onLogout={handleLogout}
+                />
+              </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              <ProfileDropdown 
-                onProfileClick={handleProfileClick}
-                onLogout={handleLogout}
-              />
-            </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Main Content - Scrollable */}
-        <main className={`flex-1 overflow-hidden bg-slate-900 dark:bg-slate-900 light:bg-gray-50 ${currentPage === 'chat' ? '' : 'overflow-y-auto hide-scrollbar'}`}>
-          {renderCurrentPage()}
-        </main>
+          {/* Main Content - Scrollable */}
+          <main className={`flex-1 overflow-hidden bg-[#0d0e0a] ${currentPage === 'chat' ? '' : 'overflow-y-auto'}`}>
+            {renderCurrentPage()}
+          </main>
+        </div>
       </div>
-    </div>
+    </ClickSpark>
   );
 }
 

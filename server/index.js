@@ -12,6 +12,8 @@ import blogRoutes from './routes/blogs.js';
 import contentRoutes from './routes/contentCreation.js';
 import permissionRoutes from './routes/permissions.js';
 import uploadRoutes from './routes/upload.js';
+import cloudinaryUploadRoutes from './routes/cloudinaryUpload.js';
+import publicBlogRoutes from './routes/publicBlogs.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultData } from './utils/initializeData.js';
 import homeContentRoutes from './routes/homeContent.js';
@@ -41,15 +43,8 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [
-      'https://app.matvchannel.co.uk',
-      'https://matvchannel.co.uk'
-    ]
-  : [
-      'http://localhost:3000',  // React dev server
-      'http://localhost:5173',
-      'http://localhost:5174'   // Vite dev server
-    ];
+  ? (process.env.CORS_ORIGINS || 'https://app.matvchannel.co.uk,https://matvchannel.co.uk').split(',')
+  : (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175').split(',');
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -90,6 +85,8 @@ app.use('/api/contents', contentRoutes);
 app.use('/api/home-contents', homeContentRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/cloudinary', cloudinaryUploadRoutes);
+app.use('/api/public/blogs', publicBlogRoutes);
 
 
 

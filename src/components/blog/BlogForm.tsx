@@ -26,21 +26,31 @@ const BlogForm: React.FC<BlogFormProps> = ({
     featured_image: blog?.featured_image || '',
     author_name: blog?.author_name || currentUser?.name || '',
     category: blog?.category || '',
+    website: blog?.website || 'Conservative', // Default to Conservative
     tags: blog?.tags || []
   });
 
   const [tagInput, setTagInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   useEffect(() => {
-    if (formData.title && !blog) {
+    if (formData.title && !slugManuallyEdited) {
       const slug = formData.title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
       setFormData(prev => ({ ...prev, slug }));
     }
-  }, [formData.title, blog]);
+  }, [formData.title, slugManuallyEdited]);
+
+  useEffect(() => {
+    if (blog?.slug) {
+      setSlugManuallyEdited(false); // Allow auto-generation even for existing blogs
+    }
+  }, [blog]);
 
   const handleContentChange = (content: string) => {
     setFormData(prev => ({ ...prev, content }));
@@ -83,14 +93,67 @@ const BlogForm: React.FC<BlogFormProps> = ({
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('image', file);
+
+      const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE}/upload/image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: uploadFormData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const result = await response.json();
+      const fullImageUrl = `${window.location.origin}${result.imageUrl}`;
+      setFormData(prev => ({ ...prev, featured_image: fullImageUrl }));
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-8">
+    <div className="max-w-5xl mx-auto p-6">
+      <style jsx>{`
+        select option:checked,
+        select option:hover {
+          background-color: #16a34a !important;
+          color: white !important;
+        }
+        select:focus option:checked {
+          background: linear-gradient(0deg, #16a34a 0%, #16a34a 100%) !important;
+        }
+      `}</style>
+      <div className="bg-[#15170f] rounded-2xl border border-gray-800/50 p-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <button
               onClick={onCancel}
-              className="p-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+              className="p-2 rounded-lg bg-[#0d0e0a] text-gray-300 hover:bg-gray-800 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -113,7 +176,7 @@ const BlogForm: React.FC<BlogFormProps> = ({
             <button
               onClick={() => handleSubmit('draft')}
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-[#0d0e0a] hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               Save Draft
@@ -121,7 +184,7 @@ const BlogForm: React.FC<BlogFormProps> = ({
             <button
               onClick={() => handleSubmit('published')}
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-black border-2 border-green-400 hover:bg-green-900 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 shadow-lg shadow-green-400/20"
             >
               <Send className="w-4 h-4" />
               Publish
@@ -131,7 +194,7 @@ const BlogForm: React.FC<BlogFormProps> = ({
 
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Title *
             </label>
             <input
@@ -139,28 +202,31 @@ const BlogForm: React.FC<BlogFormProps> = ({
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               placeholder="Enter blog title"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Slug *
             </label>
             <input
               type="text"
               value={formData.slug}
-              onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, slug: e.target.value }));
+                setSlugManuallyEdited(true);
+              }}
               placeholder="url-friendly-slug"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
             />
-            <p className="text-slate-400 text-xs mt-1">
+            <p className="text-gray-400 text-xs mt-1">
               URL-friendly version of the title (auto-generated from title)
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Excerpt
             </label>
             <textarea
@@ -168,32 +234,45 @@ const BlogForm: React.FC<BlogFormProps> = ({
               onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
               placeholder="Brief summary of the blog post"
               rows={3}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Featured Image URL
             </label>
             <div className="flex gap-2">
               <div className="flex-1 relative">
-                <ImageIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <ImageIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
                   type="text"
                   value={formData.featured_image}
                   onChange={(e) => setFormData(prev => ({ ...prev, featured_image: e.target.value }))}
                   placeholder="https://example.com/image.jpg"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
                 />
               </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="inline-flex items-center gap-2 bg-[#0d0e0a] hover:bg-gray-800 text-white px-4 py-3 rounded-xl font-medium transition-colors cursor-pointer"
+              >
+                {isUploading ? 'Uploading...' : 'Upload'}
+              </label>
             </div>
             {formData.featured_image && (
               <div className="mt-2">
                 <img
                   src={formData.featured_image}
                   alt="Featured preview"
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="w-full h-48 object-cover rounded-xl"
                   onError={(e) => {
                     e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="400" height="300" fill="%23334155"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="18"%3EImage not found%3C/text%3E%3C/svg%3E';
                   }}
@@ -204,7 +283,7 @@ const BlogForm: React.FC<BlogFormProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Author Name *
               </label>
               <input
@@ -212,18 +291,18 @@ const BlogForm: React.FC<BlogFormProps> = ({
                 value={formData.author_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, author_name: e.target.value }))}
                 placeholder="Author name"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Category
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-3 text-gray-300 focus:outline-none focus:border-green-400 focus:shadow-lg focus:shadow-green-400/20 transition-all"
               >
                 <option value="">Select Category</option>
                 <option value="Technology">Technology</option>
@@ -239,7 +318,23 @@ const BlogForm: React.FC<BlogFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Website
+            </label>
+            <select
+              value={formData.website}
+              onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+              className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-3 text-gray-300 focus:outline-none focus:border-gray-700 transition-colors"
+            >
+              <option value="">Select Website</option>
+              <option value="Conservative">Conservative</option>
+              <option value="Bihaan">Bihaan</option>
+              <option value="Pkltd">Pkltd</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Tags
             </label>
             <div className="flex gap-2 mb-2">
@@ -254,12 +349,12 @@ const BlogForm: React.FC<BlogFormProps> = ({
                   }
                 }}
                 placeholder="Add a tag"
-                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="flex-1 bg-[#0d0e0a] border border-gray-800 rounded-xl px-4 py-2 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
               />
               <button
                 type="button"
                 onClick={handleAddTag}
-                className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center gap-2 bg-[#0d0e0a] hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 <Tag className="w-4 h-4" />
                 Add
@@ -270,13 +365,13 @@ const BlogForm: React.FC<BlogFormProps> = ({
                 {formData.tags.map((tag, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 bg-cyan-500/20 text-cyan-300 px-3 py-1 rounded-full text-sm"
                   >
                     {tag}
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
-                      className="hover:text-blue-100"
+                      className="hover:text-cyan-100"
                     >
                       ×
                     </button>
@@ -287,7 +382,7 @@ const BlogForm: React.FC<BlogFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Content *
             </label>
             <RichTextEditor

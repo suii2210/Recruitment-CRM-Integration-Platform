@@ -80,7 +80,7 @@ const defaultRoles = [
     description: 'Content management and editing capabilities',
     permissions: [
       'dashboard.view',
-      'blogs.view', 'blogs.create', 'blogs.edit',
+      'blogs.view', 'blogs.create', 'blogs.edit', 'blogs.publish',
       'contents.view', 'contents.create', 'contents.edit',
       'home-contents.view', 'home-contents.create', 'home-contents.edit',
       'reports.view', 'news.view', 'news.manage'
@@ -139,6 +139,13 @@ export const initializeDefaultData = async () => {
     if (!existingAdmin) {
       const superAdminRole = await Role.findOne({ name: 'Super Admin' });
       
+      if (!superAdminRole) {
+        console.error('❌ Super Admin role not found!');
+        return;
+      }
+      
+      console.log('🔍 Super Admin role found:', superAdminRole.name, 'with permissions:', superAdminRole.permissions.length);
+      
       const adminUser = new User({
         name: process.env.ADMIN_NAME || 'Super Admin',
         email: process.env.ADMIN_EMAIL,
@@ -152,6 +159,10 @@ export const initializeDefaultData = async () => {
       console.log('✅ Super Admin user created');
       console.log(`📧 Email: ${process.env.ADMIN_EMAIL}`);
       console.log(`🔑 Password: ${process.env.ADMIN_PASSWORD}`);
+    } else {
+      console.log('✅ Super Admin user already exists');
+      const userRole = await Role.findById(existingAdmin.roleId);
+      console.log('🔍 Existing admin role:', userRole?.name, 'with permissions:', userRole?.permissions?.length || 0);
     }
     
     // We're not initializing any default authors here

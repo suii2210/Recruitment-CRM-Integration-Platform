@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, FileText } from 'lucide-react';
+import { Search, Plus, Filter, Layers } from 'lucide-react';
 import { useBlogStore } from '../../store/blogStore';
 import { useUserStore } from '../../store/userStore';
 import BlogList from './BlogList';
@@ -22,22 +22,48 @@ const BlogManagement: React.FC = () => {
     setCurrentBlog
   } = useBlogStore();
 
-  const { currentUser, hasPermission } = useUserStore();
+  const { currentUser, hasPermission, userPermissions } = useUserStore();
+
+  // Debug permissions
+  useEffect(() => {
+    console.log('Current user:', currentUser);
+    console.log('User permissions:', userPermissions);
+    console.log('Has blogs.view permission:', hasPermission('blogs.view'));
+    console.log('Has blogs.edit permission:', hasPermission('blogs.edit'));
+    console.log('Has blogs.delete permission:', hasPermission('blogs.delete'));
+  }, [currentUser, userPermissions, hasPermission]);
 
   const [view, setView] = useState<'list' | 'form' | 'preview'>('list');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedWebsite, setSelectedWebsite] = useState("Conservative");
+  const [fabExpanded, setFabExpanded] = useState(false);
+
+  const statusOptions = [
+    { id: "all", label: "All Status" },
+    { id: "published", label: "Published" },
+    { id: "draft", label: "Draft" },
+    { id: "archived", label: "Archive" },
+  ];
+
+  const categoryOptions = [
+    { id: "all", label: "All Categories" },
+    { id: "technology", label: "Technology" },
+    { id: "design", label: "Design" },
+    { id: "business", label: "Business" },
+  ];
 
   useEffect(() => {
     loadBlogs();
-  }, [filterStatus, filterCategory]);
+  }, [selectedStatus, selectedCategory, selectedWebsite]);
 
   const loadBlogs = async () => {
     try {
       await fetchBlogs({
-        status: filterStatus || undefined,
-        category: filterCategory || undefined,
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        category: selectedCategory !== 'all' ? selectedCategory : undefined,
+        website: selectedWebsite,
         page: pagination.page
       });
     } catch (error) {
@@ -86,24 +112,6 @@ const BlogManagement: React.FC = () => {
     }
   };
 
-  const handlePublish = async (blogId: string) => {
-    try {
-      await publishBlog(blogId);
-      loadBlogs();
-    } catch (error: any) {
-      alert(error.message || 'Error publishing blog');
-    }
-  };
-
-  const handleUnpublish = async (blogId: string) => {
-    try {
-      await unpublishBlog(blogId);
-      loadBlogs();
-    } catch (error: any) {
-      alert(error.message || 'Error unpublishing blog');
-    }
-  };
-
   const handleCancel = () => {
     setCurrentBlog(null);
     setView('list');
@@ -118,7 +126,7 @@ const BlogManagement: React.FC = () => {
 
   if (view === 'form') {
     return (
-      <div className="p-6">
+      <div style={{ backgroundColor: "#0d0e0a", minHeight: "100vh" }}>
         <BlogForm
           blog={currentBlog || undefined}
           currentUser={currentUser}
@@ -132,7 +140,7 @@ const BlogManagement: React.FC = () => {
 
   if (view === 'preview' && currentBlog) {
     return (
-      <div className="p-6">
+      <div style={{ backgroundColor: "#0d0e0a", minHeight: "100vh" }}>
         <BlogPreview
           blog={currentBlog}
           onBack={handleCancel}
@@ -143,109 +151,268 @@ const BlogManagement: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Blog Management</h1>
-            <p className="text-slate-400">Create and manage your blog posts</p>
-          </div>
-
-          {hasPermission('blogs.create') && (
-            <button
-              onClick={handleCreateNew}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Create New Blog
-            </button>
-          )}
+    <div className="min-h-screen" style={{ backgroundColor: "#0d0e0a" }}>
+      {/* Main Content */}
+      <main className="px-8 py-12">
+        {/* Hero Section */}
+        <div className="mb-12">
+          <h2 className="text-4xl font-bold mb-3" style={{ color: "#f1f5f9" }}>
+            Blog Management
+          </h2>
+          <p className="text-lg" style={{ color: "#9ca3af" }}>
+            Create and manage your blog posts
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+        {/* Website Filter Navbar */}
+        <div className="mb-8">
+          <div className="flex justify-center border-b border-gray-800">
+            {['Conservative', 'Bihaan', 'Pkltd'].map((website) => (
+              <button
+                key={website}
+                onClick={() => setSelectedWebsite(website)}
+                className={`pb-4 px-8 text-lg font-medium transition-all duration-500 ease-in-out relative ${
+                  selectedWebsite === website ? 'text-green-400' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                {website}
+                {selectedWebsite === website && (
+                  <div 
+                    className="absolute bottom-0 left-1/2 transform -translate-x-1/2 h-0.5 bg-green-400 transition-all duration-500 ease-in-out"
+                    style={{ 
+                      boxShadow: '0 0 8px rgba(34, 197, 94, 0.6)',
+                      width: website === 'Conservative' ? '100px' : website === 'Bihaan' ? '60px' : '50px'
+                    }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Controls Section */}
+        <div className="mb-8 flex flex-col gap-6">
+          {/* Search and Filters Row */}
+          <div className="flex flex-col lg:flex-row gap-4 items-end">
+            {/* Search Input */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: "#6b7280" }} />
               <input
-                type="text"
+                placeholder="Search blogs..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search blogs..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="pl-12 h-12 text-base border-2 transition-all duration-200 w-full rounded-lg"
+                style={{
+                  backgroundColor: "#15170f",
+                  borderColor: "#1f2937",
+                  color: "#f1f5f9",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "#22d3ee";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(34, 211, 238, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "#1f2937";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
-          </div>
 
-          <div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
+            {/* Status Filter Button */}
+            <div className="relative group">
+              <button
+                className="h-12 px-4 rounded-lg border-2 transition-all duration-200 flex items-center gap-2"
+                style={{
+                  backgroundColor: "#15170f",
+                  borderColor: "#1f2937",
+                  color: "#f1f5f9",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#22d3ee";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#1f2937";
+                }}
+              >
+                <Filter className="w-4 h-4" style={{ color: "#22d3ee" }} />
+                <span className="text-sm font-medium">Status</span>
+              </button>
+              <div
+                className="absolute top-full left-0 mt-2 w-48 rounded-lg border-2 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10"
+                style={{
+                  backgroundColor: "#15170f",
+                  borderColor: "#1f2937",
+                }}
+              >
+                {statusOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setSelectedStatus(option.id)}
+                    className="w-full px-4 py-3 text-left text-sm flex items-center gap-3 hover:bg-opacity-50 transition-colors border-b last:border-b-0"
+                    style={{
+                      backgroundColor: selectedStatus === option.id ? "#1f2937" : "transparent",
+                      borderColor: "#1f2937",
+                      color: "#f1f5f9",
+                    }}
+                  >
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">All Categories</option>
-              <option value="Technology">Technology</option>
-              <option value="Business">Business</option>
-              <option value="Lifestyle">Lifestyle</option>
-              <option value="Travel">Travel</option>
-              <option value="Food">Food</option>
-              <option value="Health">Health</option>
-              <option value="Entertainment">Entertainment</option>
-              <option value="Sports">Sports</option>
-            </select>
+            {/* Category Filter Button */}
+            <div className="relative group">
+              <button
+                className="h-12 px-4 rounded-lg border-2 transition-all duration-200 flex items-center gap-2"
+                style={{
+                  backgroundColor: "#15170f",
+                  borderColor: "#1f2937",
+                  color: "#f1f5f9",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#22d3ee";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#1f2937";
+                }}
+              >
+                <Layers className="w-4 h-4" style={{ color: "#22d3ee" }} />
+                <span className="text-sm font-medium">Category</span>
+              </button>
+              <div
+                className="absolute top-full left-0 mt-2 w-48 rounded-lg border-2 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10"
+                style={{
+                  backgroundColor: "#15170f",
+                  borderColor: "#1f2937",
+                }}
+              >
+                {categoryOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setSelectedCategory(option.id)}
+                    className="w-full px-4 py-3 text-left text-sm flex items-center gap-3 hover:bg-opacity-50 transition-colors border-b last:border-b-0"
+                    style={{
+                      backgroundColor: selectedCategory === option.id ? "#1f2937" : "transparent",
+                      borderColor: "#1f2937",
+                      color: "#f1f5f9",
+                    }}
+                  >
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <BlogList
-          blogs={filteredBlogs}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onPublish={handlePublish}
-          onUnpublish={handleUnpublish}
-          onView={handleView}
-          hasPermission={hasPermission}
+        {/* Blog List or Empty State */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "#22d3ee" }}></div>
+          </div>
+        ) : filteredBlogs.length > 0 ? (
+          <BlogList
+            blogs={filteredBlogs}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onPublish={publishBlog}
+            onUnpublish={unpublishBlog}
+            onView={handleView}
+            hasPermission={hasPermission}
+          />
+        ) : (
+          <div
+            className="rounded-xl p-16 flex flex-col items-center justify-center text-center border-2"
+            style={{
+              backgroundColor: "#15170f",
+              borderColor: "#1f2937",
+              minHeight: "400px",
+            }}
+          >
+            <div
+              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 border-2"
+              style={{
+                borderColor: "#1f2937",
+                backgroundColor: "#0d0e0a",
+              }}
+            >
+              <svg
+                className="w-10 h-10"
+                style={{ color: "#6b7280" }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold mb-2" style={{ color: "#f1f5f9" }}>
+              No Blogs Found
+            </h3>
+            <p style={{ color: "#9ca3af" }}>Get started by creating your first blog post.</p>
+          </div>
+        )}
+      </main>
+
+      {hasPermission('blogs.create') && (
+        <button
+          onClick={handleCreateNew}
+          onMouseEnter={() => setFabExpanded(true)}
+          onMouseLeave={() => setFabExpanded(false)}
+          className="fixed bottom-8 right-8 flex items-center justify-center gap-3 transition-all duration-500 ease-out font-medium"
+          style={{
+            width: fabExpanded ? "200px" : "56px",
+            height: "56px",
+            backgroundColor: "#0d0e0a",
+            border: "2px solid #22d3ee",
+            borderRadius: "50px",
+            boxShadow: fabExpanded
+              ? "0 0 30px rgba(34, 211, 238, 0.8), inset 0 0 20px rgba(34, 211, 238, 0.2)"
+              : "0 0 15px rgba(34, 211, 238, 0.4)",
+            color: "#f1f5f9",
+            cursor: "pointer",
+            overflow: "hidden",
+          }}
+        >
+        <Plus
+          className="w-6 h-6 flex-shrink-0"
+          style={{
+            color: "#22d3ee",
+            transform: fabExpanded ? "rotate(360deg)" : "rotate(0deg)",
+            transition: "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
         />
+        {fabExpanded && (
+          <span
+            className="text-sm whitespace-nowrap"
+            style={{
+              animation: "slideIn 0.4s ease-out",
+            }}
+          >
+            Create New Blogs
+          </span>
+        )}
+        </button>
       )}
 
-      {pagination.totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          <button
-            onClick={() => fetchBlogs({ ...{ status: filterStatus, category: filterCategory }, page: pagination.page - 1 })}
-            disabled={pagination.page === 1}
-            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <span className="text-slate-300">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <button
-            onClick={() => fetchBlogs({ ...{ status: filterStatus, category: filterCategory }, page: pagination.page + 1 })}
-            disabled={pagination.page === pagination.totalPages}
-            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      )}
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </div>
   );
 };

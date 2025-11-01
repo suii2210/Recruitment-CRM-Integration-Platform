@@ -11,6 +11,7 @@ export interface Blog {
   author_name: string;
   author_id?: string;
   category?: string;
+  website?: string;
   tags: string[];
   status: 'draft' | 'published' | 'archived';
   published_at?: string;
@@ -36,6 +37,7 @@ interface BlogState {
   fetchBlogs: (params?: {
     status?: string;
     category?: string;
+    website?: string;
     author_id?: string;
     page?: number;
     limit?: number;
@@ -70,6 +72,7 @@ export const useBlogStore = create<BlogState>((set, get) => ({
       const queryParams = new URLSearchParams();
       if (params.status) queryParams.append('status', params.status);
       if (params.category) queryParams.append('category', params.category);
+      if (params.website) queryParams.append('website', params.website);
       if (params.author_id) queryParams.append('author_id', params.author_id);
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
@@ -77,8 +80,14 @@ export const useBlogStore = create<BlogState>((set, get) => ({
       const url = `${API_ENDPOINTS.BLOGS.BASE}?${queryParams.toString()}`;
       const response = await apiRequest(url);
 
+      // Map MongoDB _id to id for frontend compatibility
+      const blogs = response.blogs.map((blog: any) => ({
+        ...blog,
+        id: blog._id || blog.id
+      }));
+
       set({
-        blogs: response.blogs,
+        blogs,
         pagination: response.pagination,
         loading: false
       });
@@ -92,7 +101,9 @@ export const useBlogStore = create<BlogState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const blog = await apiRequest(API_ENDPOINTS.BLOGS.BY_ID(id));
-      set({ currentBlog: blog, loading: false });
+      // Map MongoDB _id to id for frontend compatibility
+      const mappedBlog = { ...blog, id: blog._id || blog.id };
+      set({ currentBlog: mappedBlog, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
       throw error;
@@ -118,12 +129,15 @@ export const useBlogStore = create<BlogState>((set, get) => ({
         body: JSON.stringify(blogData)
       });
 
+      // Map MongoDB _id to id for frontend compatibility
+      const mappedBlog = { ...blog, id: blog._id || blog.id };
+
       set((state) => ({
-        blogs: [blog, ...state.blogs],
+        blogs: [mappedBlog, ...state.blogs],
         loading: false
       }));
 
-      return blog;
+      return mappedBlog;
     } catch (error: any) {
       set({ error: error.message, loading: false });
       throw error;
@@ -138,15 +152,18 @@ export const useBlogStore = create<BlogState>((set, get) => ({
         body: JSON.stringify(blogData)
       });
 
+      // Map MongoDB _id to id for frontend compatibility
+      const mappedBlog = { ...updatedBlog, id: updatedBlog._id || updatedBlog.id };
+
       set((state) => ({
         blogs: state.blogs.map((blog) =>
-          blog.id === id ? updatedBlog : blog
+          blog.id === id ? mappedBlog : blog
         ),
-        currentBlog: state.currentBlog?.id === id ? updatedBlog : state.currentBlog,
+        currentBlog: state.currentBlog?.id === id ? mappedBlog : state.currentBlog,
         loading: false
       }));
 
-      return updatedBlog;
+      return mappedBlog;
     } catch (error: any) {
       set({ error: error.message, loading: false });
       throw error;
@@ -178,11 +195,14 @@ export const useBlogStore = create<BlogState>((set, get) => ({
         method: 'PATCH'
       });
 
+      // Map MongoDB _id to id for frontend compatibility
+      const mappedBlog = { ...updatedBlog, id: updatedBlog._id || updatedBlog.id };
+
       set((state) => ({
         blogs: state.blogs.map((blog) =>
-          blog.id === id ? updatedBlog : blog
+          blog.id === id ? mappedBlog : blog
         ),
-        currentBlog: state.currentBlog?.id === id ? updatedBlog : state.currentBlog,
+        currentBlog: state.currentBlog?.id === id ? mappedBlog : state.currentBlog,
         loading: false
       }));
     } catch (error: any) {
@@ -198,11 +218,14 @@ export const useBlogStore = create<BlogState>((set, get) => ({
         method: 'PATCH'
       });
 
+      // Map MongoDB _id to id for frontend compatibility
+      const mappedBlog = { ...updatedBlog, id: updatedBlog._id || updatedBlog.id };
+
       set((state) => ({
         blogs: state.blogs.map((blog) =>
-          blog.id === id ? updatedBlog : blog
+          blog.id === id ? mappedBlog : blog
         ),
-        currentBlog: state.currentBlog?.id === id ? updatedBlog : state.currentBlog,
+        currentBlog: state.currentBlog?.id === id ? mappedBlog : state.currentBlog,
         loading: false
       }));
     } catch (error: any) {

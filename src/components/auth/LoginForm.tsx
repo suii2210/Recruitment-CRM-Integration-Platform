@@ -23,25 +23,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#0d0e0a] flex items-center justify-center p-6">
       <div className="max-w-md w-full">
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8 shadow-2xl">
+        <div className="bg-[#15170f] rounded-2xl border border-gray-800/50 p-8 shadow-2xl">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-red-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-12 h-12 text-green-400 drop-shadow-lg" style={{ filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.6))' }} />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Admin Dashboard</h1>
-            <p className="text-slate-400">Sign in with your administrator credentials</p>
+            <p className="text-gray-400">Sign in with your administrator credentials</p>
           </div>
 
           {/* Admin Info */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
+          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+              <Info className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" />
               <div>
-                <h3 className="text-blue-400 font-medium text-sm mb-1">Administrator Access Only</h3>
-                <p className="text-blue-300 text-xs leading-relaxed">
+                <h3 className="text-cyan-400 font-medium text-sm mb-1">Administrator Access Only</h3>
+                <p className="text-cyan-300 text-xs leading-relaxed">
                   This system is for authorized administrators only. If you need access or password reset, 
                   contact your system administrator.
                 </p>
@@ -67,7 +67,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
                   placeholder="Enter your admin email"
                   required
                 />
@@ -84,7 +84,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-12 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  className="w-full bg-[#0d0e0a] border border-gray-800 rounded-xl pl-10 pr-12 py-3 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors"
                   placeholder="Enter your password"
                   required
                 />
@@ -111,7 +111,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-black border-2 border-green-400 hover:bg-green-900 text-white py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-green-400/20"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

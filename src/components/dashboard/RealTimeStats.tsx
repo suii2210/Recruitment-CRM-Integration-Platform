@@ -50,12 +50,12 @@ const RealTimeStats: React.FC = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[...Array(8)].map((_, i) => (
-          <div key={i} className="bg-slate-800 dark:bg-slate-800 light:bg-white rounded-xl p-6 border border-slate-700 dark:border-slate-700 light:border-gray-200 animate-pulse">
-            <div className="h-4 bg-slate-700 dark:bg-slate-700 light:bg-gray-200 rounded mb-2"></div>
-            <div className="h-8 bg-slate-700 dark:bg-slate-700 light:bg-gray-200 rounded mb-2"></div>
-            <div className="h-3 bg-slate-700 dark:bg-slate-700 light:bg-gray-200 rounded w-1/2"></div>
+          <div key={i} className="bg-[#15170f] rounded-2xl p-6 border border-gray-800/50 animate-pulse">
+            <div className="h-4 bg-gray-800 rounded mb-2"></div>
+            <div className="h-8 bg-gray-800 rounded mb-2"></div>
+            <div className="h-3 bg-gray-800 rounded w-1/2"></div>
           </div>
-        ))}
+        ))
       </div>
     );
   }
@@ -66,7 +66,7 @@ const RealTimeStats: React.FC = () => {
     <div className="space-y-6">
       {/* Last Updated Indicator */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white dark:text-white light:text-gray-900">Real-time Dashboard</h2>
+        <h2 className="text-2xl font-semibold text-white">Real-time Dashboard</h2>
         {lastUpdated && (
           <div className="flex items-center gap-2 text-slate-400 dark:text-slate-400 light:text-gray-500 text-sm">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

@@ -10,7 +10,8 @@ import {
   Bell,
   Moon,
   Sun,
-  Activity
+  Activity,
+  Crown
 } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { useProfileStore } from '../../store/profileStore';
@@ -104,36 +105,32 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onProfileClick, onLog
       {/* Profile Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 p-2 rounded-lg bg-slate-700 dark:bg-slate-700 light:bg-gray-100 hover:bg-slate-600 dark:hover:bg-slate-600 light:hover:bg-gray-200 transition-colors group"
+        className="flex items-center gap-3 p-2 rounded-lg bg-[#0d0e0a] hover:bg-gray-800 transition-colors group"
       >
         {(currentUser as any).avatar ? (
           <img
             src={(currentUser as any).avatar}
             alt="Profile"
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-600 dark:ring-slate-600 light:ring-gray-300 group-hover:ring-slate-500 dark:group-hover:ring-slate-500 light:group-hover:ring-gray-400 transition-all"
+            className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-700 group-hover:ring-gray-600 transition-all"
           />
         ) : (
-          <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center ring-2 ring-slate-600 dark:ring-slate-600 light:ring-gray-300 group-hover:ring-slate-500 dark:group-hover:ring-slate-500 light:group-hover:ring-gray-400 transition-all">
-            <span className="text-white font-bold text-sm">
-              {currentUser.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
+          <Crown className="w-8 h-8 text-green-400" style={{ filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))' }} />
         )}
         <div className="hidden sm:block text-left">
-          <p className="text-white dark:text-white light:text-gray-900 font-medium text-sm">{currentUser.name}</p>
-          <p className="text-slate-400 dark:text-slate-400 light:text-gray-500 text-xs flex items-center gap-1">
+          <p className="text-white font-medium text-sm">{currentUser.name}</p>
+          <p className="text-gray-400 text-xs flex items-center gap-1">
             <Shield className="w-3 h-3" />
             {currentUser.role}
           </p>
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 dark:text-slate-400 light:text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-slate-800 dark:bg-slate-800 light:bg-white border border-slate-700 dark:border-slate-700 light:border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-[#15170f] border border-gray-800/50 rounded-xl shadow-2xl z-50 overflow-hidden">
           {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-red-500/10 to-red-600/10 border-b border-slate-700 dark:border-slate-700 light:border-gray-200">
+          <div className="p-4 bg-gradient-to-r from-orange-500/10 to-pink-500/10 border-b border-gray-800">
             <div className="flex items-center gap-3">
               {(currentUser as any).avatar ? (
                 <img
@@ -142,19 +139,15 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onProfileClick, onLog
                   className="w-12 h-12 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">
-                    {currentUser.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                <Crown className="w-10 h-10 text-green-400" style={{ filter: 'drop-shadow(0 0 12px rgba(34, 197, 94, 0.8))' }} />
               )}
               <div className="flex-1">
-                <h3 className="text-white dark:text-white light:text-gray-900 font-semibold">{currentUser.name}</h3>
-                <p className="text-slate-400 dark:text-slate-400 light:text-gray-500 text-sm">{currentUser.email}</p>
+                <h3 className="text-white font-semibold">{currentUser.name}</h3>
+                <p className="text-gray-400 text-sm">{currentUser.email}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="flex items-center gap-1 px-2 py-0.5 bg-red-500/20 rounded-full">
-                    <Shield className="w-3 h-3 text-red-400" />
-                    <span className="text-red-400 text-xs font-medium">{currentUser.role}</span>
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 rounded-full">
+                    <Shield className="w-3 h-3 text-orange-400" />
+                    <span className="text-orange-400 text-xs font-medium">{currentUser.role}</span>
                   </div>
                   <div className="flex items-center gap-1 px-2 py-0.5 bg-green-500/20 rounded-full">
                     <div className="w-2 h-2 bg-green-400 rounded-full"></div>
