@@ -53,7 +53,7 @@ const parseOrigins = (value, fallback) =>
     .filter(Boolean);
 
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? parseOrigins(process.env.CORS_ORIGINS, 'https://app.matvchannel.co.uk,https://matvchannel.co.uk')
+  ? parseOrigins(process.env.CORS_ORIGINS, 'https://admin.prashantkumar.co.uk, https://app.matvchannel.co.uk,https://matvchannel.co.uk')
   : parseOrigins(process.env.CORS_ORIGINS, 'http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175');
 
 app.use(cors({
