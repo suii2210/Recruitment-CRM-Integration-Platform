@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
+import fs from 'fs';
 import connectDB from './config/database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -53,7 +54,7 @@ const parseOrigins = (value, fallback) =>
     .filter(Boolean);
 
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? parseOrigins(process.env.CORS_ORIGINS, 'https://admin.prashantkumar.co.uk, https://app.matvchannel.co.uk,https://matvchannel.co.uk')
+  ? parseOrigins(process.env.CORS_ORIGINS, 'https://admin.prashantkumar.co.uk,https://app.matvchannel.co.uk,https://matvchannel.co.uk')
   : parseOrigins(process.env.CORS_ORIGINS, 'http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175');
 
 app.use(cors({
@@ -76,7 +77,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Create uploads directory if it doesn't exist
-import fs from 'fs';
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
