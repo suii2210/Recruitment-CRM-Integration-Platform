@@ -17,6 +17,13 @@ const defaultPermissions = [
   { id: 'blogs.edit', name: 'Edit Blogs', description: 'Edit existing blog posts', category: 'Apps & Pages' },
   { id: 'blogs.delete', name: 'Delete Blogs', description: 'Delete blog posts', category: 'Apps & Pages' },
   { id: 'blogs.publish', name: 'Publish Blogs', description: 'Publish blog posts', category: 'Apps & Pages' },
+  { id: 'jobs.view', name: 'View Careers', description: 'Access to careers section', category: 'Apps & Pages' },
+  { id: 'jobs.create', name: 'Create Careers', description: 'Create new job postings', category: 'Apps & Pages' },
+  { id: 'jobs.edit', name: 'Edit Careers', description: 'Edit existing job postings', category: 'Apps & Pages' },
+  { id: 'jobs.delete', name: 'Delete Careers', description: 'Delete job postings', category: 'Apps & Pages' },
+  { id: 'jobs.publish', name: 'Publish Careers', description: 'Publish or close job postings', category: 'Apps & Pages' },
+  { id: 'job-applications.view', name: 'View Job Applications', description: 'Access applicant pipeline and submissions', category: 'Apps & Pages' },
+  { id: 'job-applications.manage', name: 'Manage Job Applications', description: 'Update applicant status, notes, and tags', category: 'Apps & Pages' },
   { id: 'contents.view', name: 'View Contents', description: 'Access to content section', category: 'Apps & Pages' },
   { id: 'contents.create', name: 'Create Contents', description: 'Create new content pages', category: 'Apps & Pages' },
   { id: 'contents.edit', name: 'Edit Contents', description: 'Edit existing content pages', category: 'Apps & Pages' },
@@ -68,6 +75,8 @@ const defaultRoles = [
     permissions: [
       'dashboard.view',
       'blogs.view', 'blogs.create', 'blogs.edit', 'blogs.delete', 'blogs.publish',
+      'jobs.view', 'jobs.create', 'jobs.edit', 'jobs.delete', 'jobs.publish',
+      'job-applications.view', 'job-applications.manage',
       'contents.view', 'contents.create', 'contents.edit', 'contents.delete', 'contents.publish',
       'home-contents.view', 'home-contents.create', 'home-contents.edit', 'home-contents.delete', 'home-contents.publish', 'home-contents.feature',
       'users.view', 'users.create', 'users.edit', 'roles.view', 'reports.view', 'analytics.view',
@@ -81,6 +90,8 @@ const defaultRoles = [
     permissions: [
       'dashboard.view',
       'blogs.view', 'blogs.create', 'blogs.edit', 'blogs.publish',
+      'jobs.view', 'jobs.create', 'jobs.edit', 'jobs.publish',
+      'job-applications.view', 'job-applications.manage',
       'contents.view', 'contents.create', 'contents.edit',
       'home-contents.view', 'home-contents.create', 'home-contents.edit',
       'reports.view', 'news.view', 'news.manage'
@@ -93,6 +104,8 @@ const defaultRoles = [
     permissions: [
       'dashboard.view',
       'blogs.view', 'blogs.create',
+      'jobs.view', 'jobs.create',
+      'job-applications.view',
       'contents.view', 'contents.create',
       'home-contents.view', 'home-contents.create'
     ],
@@ -102,7 +115,7 @@ const defaultRoles = [
     name: 'Viewer',
     description: 'Read-only access to content',
     permissions: [
-      'dashboard.view', 'blogs.view', 'contents.view', 'home-contents.view', 'reports.view'
+      'dashboard.view', 'blogs.view', 'jobs.view', 'job-applications.view', 'contents.view', 'home-contents.view', 'reports.view'
     ],
     isDefault: true
   }

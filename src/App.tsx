@@ -3,6 +3,8 @@ import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import BlogManagement from './components/blog/BlogManagement';
 import ContentManagement from './components/contentCreation/ContentManagement';
+import CareerManagement from './components/careers/CareerManagement';
+import ApplicantManagement from './components/careers/ApplicantManagement';
 import UserManagement from './components/users/UserManagement';
 import RoleManagement from './components/roles/RoleManagement';
 import ChatSystem from './components/chat/ChatSystem';
@@ -70,6 +72,8 @@ function App() {
     if (!publicPages.includes(page)) {
       const permissionMap: { [key: string]: string } = {
         'blogs': 'blogs.view',
+        'careers': 'jobs.view',
+        'applicants': 'job-applications.view',
         'contents': 'contents.view',
         'home': 'home-contents.view',
         'users': 'users.view',
@@ -103,6 +107,10 @@ function App() {
         return <BlogManagement />;
       case 'contents':
         return <ContentManagement />;
+      case 'careers':
+        return <CareerManagement />;
+      case 'applicants':
+        return <ApplicantManagement />;
       case 'home':
         return <HomeContentManagement />; 
       case 'users':
@@ -167,6 +175,8 @@ function App() {
                   {currentPage === 'dashboard' ? 'Dashboard' : 
                    currentPage === 'profile' ? 'Profile Management' :
                    currentPage === 'chat' ? 'Messages' :
+                   currentPage === 'careers' ? 'Careers' :
+                   currentPage === 'applicants' ? 'Applicants' :
                    currentPage.replace('-', ' ')}
                 </h1>
               </div>

@@ -38,6 +38,23 @@ export const API_ENDPOINTS = {
     VIEW: (id: string) => `${API_BASE_URL}/blogs/${id}/view`,
   },
 
+  // Jobs / Careers
+  JOBS: {
+    BASE: `${API_BASE_URL}/jobs`,
+    BY_ID: (id: string) => `${API_BASE_URL}/jobs/${id}`,
+    PUBLISH: (id: string) => `${API_BASE_URL}/jobs/${id}/publish`,
+    UNPUBLISH: (id: string) => `${API_BASE_URL}/jobs/${id}/unpublish`,
+    CLOSE: (id: string) => `${API_BASE_URL}/jobs/${id}/close`,
+    TARGETS: `${API_BASE_URL}/jobs/targets/list`,
+  },
+  JOB_APPLICATIONS: {
+    BASE: `${API_BASE_URL}/job-applications`,
+    BY_ID: (id: string) => `${API_BASE_URL}/job-applications/${id}`,
+    EMAIL: (id: string) => `${API_BASE_URL}/job-applications/${id}/email`,
+    WORKFLOW_EMAIL: (id: string) => `${API_BASE_URL}/job-applications/${id}/workflow-email`,
+    OFFER_UPLOAD: (id: string) => `${API_BASE_URL}/job-applications/${id}/offer-letter/upload`,
+  },
+
   // Contents
   CONTENTS: {
     BASE: `${API_BASE_URL}/contents`,
@@ -72,6 +89,11 @@ export const API_ENDPOINTS = {
   PERMISSIONS: {
     BASE: `${API_BASE_URL}/permissions`,
     BY_CATEGORY: (category: string) => `${API_BASE_URL}/permissions/category/${category}`,
+  },
+  PUBLIC_JOBS: {
+    BASE: `${API_BASE_URL}/public/jobs`,
+    BY_SLUG: (slug: string) => `${API_BASE_URL}/public/jobs/${slug}`,
+    APPLY: (slug: string) => `${API_BASE_URL}/public/jobs/${slug}/apply`,
   },
   
   // Upload

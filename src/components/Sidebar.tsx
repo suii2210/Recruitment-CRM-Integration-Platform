@@ -1,13 +1,13 @@
 import React from 'react';
-import { 
-  Home, 
-  FileText, 
-  Edit3, 
-  Users, 
-  Shield, 
-  MessageSquare, 
+import {
+  Home,
+  FileText,
+  Users,
+  Shield,
   User,
-  Zap
+  Zap,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 
@@ -25,6 +25,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', permission: null },
     { id: 'blogs', icon: FileText, label: 'Blogs', permission: 'blogs.view' },
+    { id: 'careers', icon: Briefcase, label: 'Careers', permission: 'jobs.view' },
+    { id: 'applicants', icon: UserCheck, label: 'Applicants', permission: 'job-applications.view' },
     { id: 'users', icon: Users, label: 'Users', permission: 'users.view' },
     { id: 'roles', icon: Shield, label: 'Roles', permission: 'roles.view' },
     { id: 'profile', icon: User, label: 'Profile', permission: null },

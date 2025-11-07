@@ -10,10 +10,14 @@ import userRoutes from './routes/users.js';
 import roleRoutes from './routes/roles.js';
 import blogRoutes from './routes/blogs.js';
 import contentRoutes from './routes/contentCreation.js';
+import jobRoutes from './routes/jobs.js';
+import jobApplicationRoutes from './routes/jobApplications.js';
 import permissionRoutes from './routes/permissions.js';
 import uploadRoutes from './routes/upload.js';
 import cloudinaryUploadRoutes from './routes/cloudinaryUpload.js';
 import publicBlogRoutes from './routes/publicBlogs.js';
+import publicJobRoutes from './routes/publicJobs.js';
+import publicApplicationRoutes from './routes/publicApplications.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultData } from './utils/initializeData.js';
 import homeContentRoutes from './routes/homeContent.js';
@@ -81,12 +85,16 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/job-applications', jobApplicationRoutes);
 app.use('/api/contents', contentRoutes);
 app.use('/api/home-contents', homeContentRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/cloudinary', cloudinaryUploadRoutes);
 app.use('/api/public/blogs', publicBlogRoutes);
+app.use('/api/public/jobs', publicJobRoutes);
+app.use('/api/public/applications', publicApplicationRoutes);
 
 
 

@@ -5,6 +5,8 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
+
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
