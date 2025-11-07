@@ -46,9 +46,15 @@ const PORT = process.env.PORT || 5000;
 
 
 // Middleware
+const parseOrigins = (value, fallback) =>
+  (value || fallback)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? (process.env.CORS_ORIGINS || 'https://app.matvchannel.co.uk,https://matvchannel.co.uk').split(',')
-  : (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175').split(',');
+  ? parseOrigins(process.env.CORS_ORIGINS, 'https://app.matvchannel.co.uk,https://matvchannel.co.uk')
+  : parseOrigins(process.env.CORS_ORIGINS, 'http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175');
 
 app.use(cors({
   origin: function (origin, callback) {
