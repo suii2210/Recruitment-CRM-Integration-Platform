@@ -19,6 +19,8 @@ import cloudinaryUploadRoutes from './routes/cloudinaryUpload.js';
 import publicBlogRoutes from './routes/publicBlogs.js';
 import publicJobRoutes from './routes/publicJobs.js';
 import publicApplicationRoutes from './routes/publicApplications.js';
+import taskRoutes from './routes/tasks.js';
+import attendanceRoutes from './routes/attendance.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultData } from './utils/initializeData.js';
 import homeContentRoutes from './routes/homeContent.js';
@@ -101,6 +103,8 @@ app.use('/api/cloudinary', cloudinaryUploadRoutes);
 app.use('/api/public/blogs', publicBlogRoutes);
 app.use('/api/public/jobs', publicJobRoutes);
 app.use('/api/public/applications', publicApplicationRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 
 

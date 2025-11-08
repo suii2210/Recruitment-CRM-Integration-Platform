@@ -133,6 +133,8 @@ export interface JobApplication {
       role?: string;
       status?: string;
     } | null;
+    start_date?: string;
+    end_date?: string;
   }) | null;
   created_at: string;
   updated_at: string;
@@ -268,6 +270,8 @@ const normalizeApplication = (application: any): JobApplication => ({
               }
             : { _id: application.offer.user }
           : null,
+        start_date: application.offer.start_date,
+        end_date: application.offer.end_date,
       }
     : null,
   email_logs: (application.email_logs || []).map((log: any) => ({
@@ -282,6 +286,7 @@ const normalizeApplication = (application: any): JobApplication => ({
 export const useApplicationStore = create<ApplicationState>((set, get) => ({
   applications: [],
   currentApplication: null,
+  hiredApplicants: [],
   stats: {
     byStatus: {},
     byJob: [],
@@ -331,6 +336,17 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message });
       return null;
+    }
+  },
+
+  fetchHiredApplicants: async () => {
+    try {
+      const response = await apiRequest(API_ENDPOINTS.JOB_APPLICATIONS.HIRED);
+      const hires = (response.hires || []).map(normalizeApplication);
+      set({ hiredApplicants: hires });
+    } catch (error: any) {
+      console.error('Failed to fetch hired applicants', error);
+      set({ error: error.message });
     }
   },
 

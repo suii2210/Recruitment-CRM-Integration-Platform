@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import BlogManagement from './components/blog/BlogManagement';
 import ContentManagement from './components/contentCreation/ContentManagement';
 import CareerManagement from './components/careers/CareerManagement';
 import ApplicantManagement from './components/careers/ApplicantManagement';
+import TaskManagement from './components/careers/TaskManagement';
+import CandidateDashboard from './components/candidate/CandidateDashboard';
+import HiredMembers from './components/careers/HiredMembers';
 import UserManagement from './components/users/UserManagement';
 import RoleManagement from './components/roles/RoleManagement';
 import ChatSystem from './components/chat/ChatSystem';
 import LoginForm from './components/auth/LoginForm';
 import ProfileDropdown from './components/profile/ProfileDropdown';
+import NotificationBell from './components/NotificationBell';
 import ProfileManagement from './components/profile/ProfileManagement';
 import SalesCards from './components/SalesCards';
 import LevelChart from './components/LevelChart';
@@ -21,6 +25,7 @@ import { useContentStore } from './store/contentStore';
 import { useProfileStore } from './store/profileStore';
 import { useDashboardStore } from './store/dashboardStore';
 import HomeContentManagement from './components/homeContentCreation/HomeContentManagement';
+import { useApplicationStore } from './store/applicationStore';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,6 +35,9 @@ function App() {
   const { setCurrentUser: setContentUser } = useContentStore();
   const { preferences, initializePreferences } = useProfileStore();
   const { startRealTimeUpdates, stopRealTimeUpdates } = useDashboardStore();
+  const applications = useApplicationStore((state) => state.applications);
+  const fetchApplicationById = useApplicationStore((state) => state.fetchApplicationById);
+  const setCurrentApplication = useApplicationStore((state) => state.setCurrentApplication);
 
   // Check authentication on app load
   useEffect(() => {
@@ -50,9 +58,11 @@ function App() {
     }
   }, [currentUser, setContentUser]);
 
+  const isCandidate = currentUser?.role?.toLowerCase() === 'candidate';
+
   // Start/stop real-time updates based on authentication and current page
   useEffect(() => {
-    if (isAuthenticated && currentPage === 'dashboard') {
+    if (isAuthenticated && currentPage === 'dashboard' && !isCandidate) {
       startRealTimeUpdates();
     } else {
       stopRealTimeUpdates();
@@ -62,7 +72,7 @@ function App() {
     return () => {
       stopRealTimeUpdates();
     };
-  }, [isAuthenticated, currentPage, startRealTimeUpdates, stopRealTimeUpdates]);
+  }, [isAuthenticated, currentPage, isCandidate, startRealTimeUpdates, stopRealTimeUpdates]);
 
   const handleNavigation = (page: string) => {
     // Define pages that don't require permission checks
@@ -74,6 +84,7 @@ function App() {
         'blogs': 'blogs.view',
         'careers': 'jobs.view',
         'applicants': 'job-applications.view',
+        'hires': 'job-applications.view',
         'contents': 'contents.view',
         'home': 'home-contents.view',
         'users': 'users.view',
@@ -101,6 +112,41 @@ function App() {
     setCurrentPage('profile');
   };
 
+  const handleNotificationNavigate = useCallback(
+    async (applicationId: string) => {
+      if (!applicationId) return;
+      let target =
+        applications.find((application) => application.id === applicationId) ||
+        null;
+      if (!target) {
+        target = await fetchApplicationById(applicationId);
+      }
+      if (target) {
+        setCurrentApplication(target);
+        setCurrentPage('applicants');
+      } else {
+        alert('Unable to open this applicant. They may have been removed.');
+      }
+    },
+    [applications, fetchApplicationById, setCurrentApplication]
+  );
+
+  if (isCandidate) {
+    return (
+      <ClickSpark sparkColor="#22d3ee" sparkCount={6} sparkRadius={20}>
+        <div className="h-screen bg-[#0d0e0a] flex flex-col">
+          <header className="bg-[#15170f] border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+            <h1 className="text-white font-semibold text-lg">My workspace</h1>
+            <ProfileDropdown onProfileClick={() => {}} onLogout={handleLogout} />
+          </header>
+          <main className="flex-1 overflow-y-auto">
+            <CandidateDashboard />
+          </main>
+        </div>
+      </ClickSpark>
+    );
+  }
+
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'blogs':
@@ -111,6 +157,10 @@ function App() {
         return <CareerManagement />;
       case 'applicants':
         return <ApplicantManagement />;
+      case 'tasks':
+        return <TaskManagement />;
+      case 'hires':
+        return <HiredMembers />;
       case 'home':
         return <HomeContentManagement />; 
       case 'users':
@@ -177,11 +227,13 @@ function App() {
                    currentPage === 'chat' ? 'Messages' :
                    currentPage === 'careers' ? 'Careers' :
                    currentPage === 'applicants' ? 'Applicants' :
+                   currentPage === 'hires' ? 'Hires' :
                    currentPage.replace('-', ' ')}
                 </h1>
               </div>
               
               <div className="flex items-center gap-4">
+                <NotificationBell onNavigateToApplicant={handleNotificationNavigate} />
                 <ProfileDropdown 
                   onProfileClick={handleProfileClick}
                   onLogout={handleLogout}

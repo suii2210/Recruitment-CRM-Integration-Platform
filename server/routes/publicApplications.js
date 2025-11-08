@@ -6,8 +6,7 @@ import crypto from 'crypto';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import JobApplication from '../models/JobApplication.js';
-import Role from '../models/Role.js';
-import User from '../models/User.js';
+import { ensureCandidateAccount } from '../utils/candidateAccount.js';
 
 const router = express.Router();
 
@@ -21,7 +20,8 @@ router.use(
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, '../../uploads/candidate-docs');
+const uploadsRoot = path.join(__dirname, '../../uploads');
+const uploadsDir = path.join(uploadsRoot, 'candidate-docs');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -49,18 +49,18 @@ const renderPage = (title, body) => `<!doctype html>
     <meta charset="utf-8" />
     <title>${title}</title>
     <style>
-      body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; padding: 32px; }
-      .card { max-width: 640px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 32px; box-shadow: 0 24px 60px rgba(15,23,42,0.45); }
-      h1 { margin-bottom: 16px; color: #38bdf8; }
-      a, button { background: #38bdf8; color: #0f172a; padding: 12px 18px; border-radius: 12px; text-decoration: none; font-weight: 600; display: inline-block; margin-top: 16px; }
-      p { line-height: 1.6; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fb; color: #1f2933; padding: 48px 16px; }
+      .card { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 36px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.12); border: 1px solid #e2e8f0; }
+      h1 { margin-bottom: 16px; color: #111827; font-size: 28px; }
+      a, button { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: #ffffff; padding: 12px 20px; border-radius: 12px; text-decoration: none; font-weight: 600; display: inline-block; margin-top: 16px; }
+      p { line-height: 1.7; }
       form { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
-      input[type="file"] { padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 12px; color: #e2e8f0; }
-      button { border: none; cursor: pointer; transition: transform 0.2s ease; }
-      button:hover, a:hover { transform: translateY(-1px); }
-      .muted { color: #94a3b8; font-size: 14px; }
-      .success { color: #4ade80; }
-      .error { color: #f87171; }
+      input[type="file"] { padding: 12px; background: #f1f5f9; border: 1px solid #cbd5f5; border-radius: 12px; color: #1f2933; }
+      button { border: none; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+      button:hover, a:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(59, 130, 246, 0.2); }
+      .muted { color: #6b7280; font-size: 14px; }
+      .success { color: #16a34a; }
+      .error { color: #dc2626; }
     </style>
   </head>
   <body>
@@ -69,6 +69,20 @@ const renderPage = (title, body) => `<!doctype html>
     </div>
   </body>
 </html>`;
+
+const renderLetterPage = (title, description, downloadUrl) =>
+  renderPage(
+    title,
+    `
+      <h1>${title}</h1>
+      <p>${description}</p>
+      ${
+        downloadUrl
+          ? `<p><a href="${downloadUrl}" style="display:inline-block;margin-top:12px;">Download offer letter</a></p>`
+          : ''
+      }
+    `
+  );
 
 const findApplicationByToken = async (token, type) => {
   if (!token) return null;
@@ -79,6 +93,19 @@ const findApplicationByToken = async (token, type) => {
   return JobApplication.findOne(query);
 };
 
+const resolveLetterAbsolutePath = (letterPath) => {
+  if (!letterPath) return null;
+  const sanitized = letterPath.replace(/^\/*/, '');
+  const absolute = path.join(__dirname, '../../', sanitized);
+  if (!absolute.startsWith(uploadsRoot)) {
+    throw new Error('Letter path must stay inside uploads directory.');
+  }
+  if (!fs.existsSync(absolute)) {
+    throw new Error('Offer letter file is missing.');
+  }
+  return absolute;
+};
+
 const appendTimeline = (application, note) => {
   application.timeline = application.timeline || [];
   application.timeline.push({
@@ -86,42 +113,6 @@ const appendTimeline = (application, note) => {
     note,
     changed_at: new Date(),
   });
-};
-
-const ensureUserForApplication = async (application) => {
-  if (!application.email) return null;
-
-  let user = null;
-  if (application.offer?.user) {
-    user = await User.findById(application.offer.user);
-  }
-  if (!user) {
-    user = await User.findOne({ email: application.email });
-  }
-
-  if (!user) {
-    const defaultRole =
-      (await Role.findOne({ name: 'Viewer' })) || (await Role.findOne({}));
-    const roleId = defaultRole?._id;
-    const roleName = defaultRole?.name || 'Viewer';
-
-    const tempPassword = crypto.randomBytes(10).toString('hex');
-    user = new User({
-      name: application.applicant_name,
-      email: application.email,
-      password: tempPassword,
-      role: roleName,
-      roleId,
-      status: 'active',
-    });
-
-    await user.save();
-  }
-
-  application.offer = application.offer || {};
-  application.offer.user = user._id;
-
-  return user;
 };
 
 router.get('/respond/:token/:decision', async (req, res) => {
@@ -304,6 +295,153 @@ router.post('/documents/:token', upload.array('documents', 5), async (req, res) 
   }
 });
 
+router.get('/offer-letter/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const application = await findApplicationByToken(token, 'offer');
+
+    if (!application) {
+      return res
+        .status(404)
+        .send(
+          renderPage(
+            'Link expired',
+            '<h1>Link expired</h1><p>This offer link is no longer valid.</p>'
+          )
+        );
+    }
+
+    const letter = application.offer?.letter;
+    if (!letter?.path) {
+      return res
+        .status(404)
+        .send(
+          renderPage(
+            'Offer letter unavailable',
+            '<h1>Offer letter unavailable</h1><p>The offer document could not be located. Please contact HR.</p>'
+          )
+        );
+    }
+
+    const downloadUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}/offer-letter/${token}/download`;
+    res.send(
+      renderLetterPage(
+        'Download your offer letter',
+        `Hi ${application.applicant_name || 'there'}, your offer for ${
+          application.job_title || 'this role'
+        } is ready. Use the button below to download a copy.`,
+        downloadUrl
+      )
+    );
+  } catch (error) {
+    console.error('Offer letter view error:', error);
+    res
+      .status(500)
+      .send(
+        renderPage(
+          'Server error',
+          '<h1>Unable to load</h1><p>We could not load your offer letter. Please try again later.</p>'
+        )
+      );
+  }
+});
+
+router.get('/offer-letter/:token/download', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const application = await findApplicationByToken(token, 'offer');
+    if (!application) {
+      return res.status(404).send('Offer not found.');
+    }
+    const letter = application.offer?.letter;
+    if (!letter?.path) {
+      return res.status(404).send('Offer letter unavailable.');
+    }
+    const absolutePath = resolveLetterAbsolutePath(letter.path);
+    const safeName =
+      letter.filename ||
+      `${(application.applicant_name || 'Offer').replace(/[^\w.-]+/g, '_')}.${letter.format || 'pptx'}`;
+    res.download(absolutePath, safeName);
+  } catch (error) {
+    console.error('Offer letter download error:', error);
+    res.status(500).send('Failed to download offer letter.');
+  }
+});
+
+router.get('/offer/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const application = await findApplicationByToken(token, 'offer');
+
+    if (!application) {
+      return res
+        .status(404)
+        .send(renderPage('Link expired', '<h1>Link expired</h1><p>This offer link is no longer valid.</p>'));
+    }
+
+    if (application.offer?.response_status !== 'pending') {
+      return res.send(
+        renderPage(
+          'Decision already recorded',
+          `<h1>Thank you</h1><p>We already received your response on <strong>${
+            application.offer.responded_at?.toLocaleString() || 'a previous date'
+          }</strong>.</p>`
+        )
+      );
+    }
+
+    const letter = application.offer?.letter;
+    if (!letter?.path) {
+      return res.send(
+        renderPage(
+          'Offer letter unavailable',
+          '<h1>Offer letter unavailable</h1><p>The document could not be located. Please contact HR for assistance.</p>'
+        )
+      );
+    }
+
+    const downloadUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}/offer-letter/${token}/download`;
+    const acceptUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}/offer/${token}/accept`;
+    const declineUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}/offer/${token}/decline`;
+
+    const body = `
+      <h1>Review your offer</h1>
+      <p>Hi ${application.applicant_name || 'there'}, congratulations! Your offer for <strong>${
+        application.job_title || 'the role'
+      }</strong> is ready.</p>
+      <div style="margin:16px 0;padding:16px;border-radius:12px;border:1px solid #dbeafe;background:#eff6ff;">
+        <p style="margin:0 0 8px 0;">Download and read the full offer letter:</p>
+        <a href="${downloadUrl}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">
+          Download offer letter
+        </a>
+      </div>
+      <div style="margin-top:24px;">
+        <p style="margin-bottom:12px;font-weight:600;">When you’re ready, let us know your decision:</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a href="${acceptUrl}" style="flex:1;min-width:160px;text-align:center;padding:12px 16px;background:#16a34a;color:#fff;border-radius:10px;text-decoration:none;font-weight:600;">
+            ✅ Accept the offer
+          </a>
+          <a href="${declineUrl}" style="flex:1;min-width:160px;text-align:center;padding:12px 16px;background:#ef4444;color:#fff;border-radius:10px;text-decoration:none;font-weight:600;">
+            ❌ Decline the offer
+          </a>
+        </div>
+      </div>
+    `;
+
+    return res.send(renderPage('Review your offer', body));
+  } catch (error) {
+    console.error('Offer review error:', error);
+    res
+      .status(500)
+      .send(
+        renderPage(
+          'Server error',
+          '<h1>Something went wrong</h1><p>We were unable to load your offer. Please try again later.</p>'
+        )
+      );
+  }
+});
+
 router.get('/offer/:token/:decision', async (req, res) => {
   try {
     const { token, decision } = req.params;
@@ -347,7 +485,14 @@ router.get('/offer/:token/:decision', async (req, res) => {
     application.status = accepted ? 'hired' : 'rejected';
 
     if (accepted) {
-      await ensureUserForApplication(application);
+      await ensureCandidateAccount(application);
+      if (!application.offer.start_date) {
+        const startDate = new Date();
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + 3);
+        application.offer.start_date = startDate;
+        application.offer.end_date = endDate;
+      }
       appendTimeline(application, 'Candidate accepted the offer. User profile created.');
     } else {
       appendTimeline(application, 'Candidate declined the offer.');

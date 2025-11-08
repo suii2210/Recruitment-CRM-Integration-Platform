@@ -52,7 +52,24 @@ export const API_ENDPOINTS = {
     BY_ID: (id: string) => `${API_BASE_URL}/job-applications/${id}`,
     EMAIL: (id: string) => `${API_BASE_URL}/job-applications/${id}/email`,
     WORKFLOW_EMAIL: (id: string) => `${API_BASE_URL}/job-applications/${id}/workflow-email`,
+    WORKFLOW_BATCH: `${API_BASE_URL}/job-applications/workflow-email/batch`,
+    WORKFLOW_BUCKETS: `${API_BASE_URL}/job-applications/workflow/buckets`,
     OFFER_UPLOAD: (id: string) => `${API_BASE_URL}/job-applications/${id}/offer-letter/upload`,
+    OFFER_GENERATE: (id: string) => `${API_BASE_URL}/job-applications/${id}/offer-letter/generate`,
+    HIRED: `${API_BASE_URL}/job-applications/hired/list`,
+    NOTIFICATIONS: `${API_BASE_URL}/job-applications/notifications`,
+  },
+  TASKS: {
+    BASE: `${API_BASE_URL}/tasks`,
+    SHARE: (id: string) => `${API_BASE_URL}/tasks/${id}/share`,
+    MINE: `${API_BASE_URL}/tasks/my`,
+    SUBMIT: (id: string) => `${API_BASE_URL}/tasks/${id}/submissions`,
+  },
+  ATTENDANCE: {
+    CHECK_IN: `${API_BASE_URL}/attendance/check-in`,
+    CHECK_OUT: `${API_BASE_URL}/attendance/check-out`,
+    MINE: `${API_BASE_URL}/attendance/my`,
+    ADMIN_RECENT: `${API_BASE_URL}/attendance/recent`,
   },
 
   // Contents

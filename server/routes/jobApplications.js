@@ -9,6 +9,9 @@ import JobApplication, { APPLICATION_STATUSES } from '../models/JobApplication.j
 import Job from '../models/Job.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { isEmailConfigured, sendApplicantEmail } from '../utils/emailService.js';
+import { ensureCandidateAccount } from '../utils/candidateAccount.js';
+import Attendance from '../models/Attendance.js';
+import { generateOfferLetterBuffer } from '../utils/offerLetterGenerator.js';
 
 const router = express.Router();
 
@@ -27,6 +30,34 @@ const buildCandidatePortalBase = (req) => {
   return base.replace(/\/$/, '');
 };
 
+const ensureAbsoluteUrl = (value, req) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^[a-z]+:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  const protocol =
+    trimmed.startsWith('localhost') || trimmed.startsWith('127.0.0.1')
+      ? 'http'
+      : req?.protocol || 'https';
+  const sanitized = trimmed.replace(/^\/+/, '');
+  return `${protocol}://${sanitized}`;
+};
+
+const buildCandidateDashboardUrl = (req) => {
+  const explicit = ensureAbsoluteUrl(process.env.CANDIDATE_DASHBOARD_URL, req);
+  if (explicit) return explicit;
+
+  const derived = ensureAbsoluteUrl(
+    process.env.CANDIDATE_PORTAL_BASE_URL?.replace(/\/api\/public\/applications$/, ''),
+    req
+  );
+  if (derived) return derived;
+
+  return `${req.protocol}://${req.get('host')}/candidate`;
+};
+
 const resolveUploadAttachment = (relativePath) => {
   if (!relativePath || typeof relativePath !== 'string') return null;
   const sanitized = relativePath.replace(/^\/*/, '');
@@ -37,9 +68,15 @@ const resolveUploadAttachment = (relativePath) => {
   if (!fs.existsSync(absolutePath)) {
     throw new Error('Attachment file not found on server');
   }
+  const stats = fs.statSync(absolutePath);
+  const normalizedRelative = `/${path
+    .relative(path.join(__dirname, '../../'), absolutePath)
+    .replace(/\\/g, '/')}`;
   return {
     filename: path.basename(absolutePath),
     path: absolutePath,
+    relativePath: normalizedRelative,
+    size: stats.size,
   };
 };
 
@@ -65,6 +102,421 @@ const appendTimeline = (application, note, userId) => {
     changed_at: new Date(),
   });
 };
+
+const createHttpError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const workflowPopulateFields = [
+  {
+    path: 'job',
+    select: 'title slug status department location employment_type',
+  },
+  { path: 'processed_by', select: 'name email' },
+  { path: 'offer.user', select: 'name email role status' },
+];
+
+const safeSlug = (value) =>
+  (value || '')
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '') || 'offer-letter';
+
+const formatDisplayDate = (value) => {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const monthsBetween = (start, end) => {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (
+    Number.isNaN(startDate.getTime()) ||
+    Number.isNaN(endDate.getTime()) ||
+    endDate <= startDate
+  ) {
+    return null;
+  }
+  let months =
+    (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+    (endDate.getMonth() - startDate.getMonth());
+  if (endDate.getDate() < startDate.getDate()) {
+    months -= 1;
+  }
+  if (months <= 0) {
+    months = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+  }
+  return months > 0 ? months : 1;
+};
+
+const computeDurationLabel = (application, override) => {
+  if (override && override.toString().trim()) {
+    return override.toString().trim();
+  }
+  const metaDuration =
+    application.meta?.duration ||
+    application.meta?.internship_duration ||
+    application.meta?.offer_duration;
+  if (typeof metaDuration === 'string' && metaDuration.trim()) {
+    return metaDuration.trim();
+  }
+  if (application.offer?.start_date && application.offer?.end_date) {
+    const months = monthsBetween(application.offer.start_date, application.offer.end_date);
+    if (months) {
+      return `${months} Month${months === 1 ? '' : 's'}`;
+    }
+  }
+  if (
+    application.job?.employment_type === 'internship' ||
+    application.job?.employment_type === 'unpaid'
+  ) {
+    return '3 Months Internship';
+  }
+  return '3 Months';
+};
+
+const buildOfferLetterTemplateData = (application, overrides = {}) => ({
+  name: (overrides.name || application.applicant_name || 'Candidate').toString().trim(),
+  role: (
+    overrides.role ||
+    application.job_title ||
+    application.job?.title ||
+    'Team Member'
+  )
+    .toString()
+    .trim(),
+  duration: computeDurationLabel(application, overrides.duration),
+  date: formatDisplayDate(overrides.date || overrides.offerDate || new Date()),
+});
+
+const autoGenerateOfferLetterFile = async (application, options = {}) => {
+  const templateData = buildOfferLetterTemplateData(application, options.dataOverrides);
+
+  const buffer = await generateOfferLetterBuffer(templateData);
+  const extension = '.pdf';
+  const filename = `${safeSlug(
+    `${application.applicant_name || 'candidate'}-${application.job_title || 'offer'}`
+  )}-${Date.now()}${extension}`;
+  const absolutePath = path.join(offerLetterDir, filename);
+  fs.writeFileSync(absolutePath, buffer);
+
+  return {
+    absolutePath,
+    relativePath: `/uploads/offer-letters/${filename}`,
+    filename,
+    format: 'pdf',
+    size: buffer.length,
+    templateData,
+    warning: null,
+  };
+};
+
+const normalizeAutoOfferOptions = (input) => {
+  if (!input) return null;
+  if (input === true) {
+    return { enabled: true, format: 'pdf' };
+  }
+  if (typeof input === 'object') {
+    const normalized = {
+      enabled: input.enabled !== false,
+      format: (input.format || 'pdf').toLowerCase(),
+    };
+    if (!['pdf', 'pptx'].includes(normalized.format)) {
+      normalized.format = 'pdf';
+    }
+    const overrides = { ...(input.dataOverrides || {}) };
+    ['name', 'role', 'duration', 'date', 'offerDate'].forEach((key) => {
+      if (input[key]) {
+        overrides[key === 'offerDate' ? 'date' : key] = input[key];
+      }
+    });
+    if (Object.keys(overrides).length) {
+      normalized.dataOverrides = overrides;
+    }
+    return normalized;
+  }
+  return null;
+};
+
+const dispatchWorkflowEmail = async ({
+  application,
+  templateCode,
+  recruiterNote,
+  baseUrl,
+  candidateDashboardUrl,
+  offerLetterPath,
+  user,
+  autoOfferOptions = null,
+  populateAfterSave = true,
+}) => {
+  if (!application) {
+    throw createHttpError('Application not found.', 404);
+  }
+  if (!application.email) {
+    throw createHttpError('Applicant does not have an email address on file.');
+  }
+
+  const normalizedAutoOffer =
+    templateCode === '003' ? normalizeAutoOfferOptions(autoOfferOptions) : null;
+
+  const now = new Date();
+  const jobTitle = application.job_title || application.job?.title || 'the position';
+  const firstName = application.applicant_name?.split(' ')[0] || 'there';
+  const trimmedNote = recruiterNote?.toString().trim();
+  const noteBlock = trimmedNote ? `<p>${trimmedNote.replace(/\n/g, '<br/>')}</p>` : '';
+
+  let subject = '';
+  let html = '';
+  const attachments = [];
+  let offerAttachmentInfo = null;
+
+  if (templateCode === '001') {
+    const token = crypto.randomBytes(32).toString('hex');
+    const acceptUrl = `${baseUrl}/respond/${token}/accept`;
+    const declineUrl = `${baseUrl}/respond/${token}/decline`;
+
+    application.shortlist = {
+      token,
+      sent_at: now,
+      response_status: 'pending',
+    };
+    application.onboarding_status = 'shortlisted';
+    application.status = 'shortlisted';
+
+    subject = `001 | Shortlisted for ${jobTitle}`;
+    html = `
+      <p>Hi ${firstName},</p>
+      <p>Great news! You have been shortlisted for <strong>${jobTitle}</strong>.</p>
+      <p>Please confirm if you would like to continue with the next steps:</p>
+      <p>
+        <a href="${acceptUrl}">✅ Yes, I would like to continue</a><br/>
+        <a href="${declineUrl}">❌ No, I am not available</a>
+      </p>
+      ${noteBlock}
+      <p>Kind regards,<br/>${user?.name || 'HR Team'}</p>
+    `;
+
+    appendTimeline(application, 'Sent 001 shortlist email to candidate.', user?._id);
+  } else if (templateCode === '002') {
+    if (!application.shortlist || application.shortlist.response_status !== 'accepted') {
+      throw createHttpError(
+        'Cannot send 002 email until the applicant accepts the shortlist invitation.'
+      );
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const uploadUrl = `${baseUrl}/documents/${token}`;
+
+    application.document_request = {
+      token,
+      sent_at: now,
+      completed_at: application.document_request?.completed_at || null,
+    };
+    application.onboarding_status = 'documents-requested';
+    application.status = application.status === 'offered' ? application.status : 'in_review';
+
+    subject = `002 | Documents required for ${jobTitle}`;
+    html = `
+      <p>Hi ${firstName},</p>
+      <p>Thank you for confirming your interest in <strong>${jobTitle}</strong>.</p>
+      <p>Please upload the requested identification documents (Aadhaar, passport, etc.) using the secure link below:</p>
+      <p><a href="${uploadUrl}">Upload documents</a></p>
+      ${noteBlock}
+      <p>Let us know if you have any questions.<br/>${user?.name || 'HR Team'}</p>
+    `;
+
+    appendTimeline(application, 'Sent 002 document request email to candidate.', user?._id);
+  } else if (templateCode === '003') {
+    if (!application.document_request || !application.document_request.completed_at) {
+      throw createHttpError('Cannot send 003 email until the applicant uploads their documents.');
+    }
+    if (application.offer?.response_status === 'accepted') {
+      throw createHttpError('Offer has already been accepted by the candidate.');
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const offerPageUrl = `${baseUrl}/offer/${token}`;
+    const acceptUrl = `${baseUrl}/offer/${token}/accept`;
+    const declineUrl = `${baseUrl}/offer/${token}/decline`;
+
+    const { password: candidatePassword } = await ensureCandidateAccount(application);
+    const loginUrl =
+      candidateDashboardUrl ||
+      process.env.CANDIDATE_DASHBOARD_URL ||
+      process.env.CANDIDATE_PORTAL_BASE_URL?.replace(/\/api\/public\/applications$/, '');
+
+    application.offer = application.offer || {};
+    application.offer.token = token;
+    application.offer.sent_at = now;
+    application.offer.response_status = 'pending';
+    application.onboarding_status = 'offer-sent';
+    application.status = 'offered';
+
+    const letterPageUrl = offerPageUrl;
+    let offerLetterBlock = '';
+    const shouldAutoGenerate = normalizedAutoOffer?.enabled !== false;
+
+    if (offerLetterPath) {
+      try {
+        const attachment = resolveUploadAttachment(offerLetterPath);
+        offerAttachmentInfo = {
+          relativePath: attachment.relativePath,
+          filename: attachment.filename,
+          autoGenerated: false,
+          format: path.extname(attachment.filename)?.replace('.', '') || 'pptx',
+          size: attachment.size,
+        };
+      } catch (attachmentError) {
+        throw createHttpError(
+          attachmentError?.message || 'Failed to attach the selected offer letter.'
+        );
+      }
+    } else if (shouldAutoGenerate) {
+      const generated = await autoGenerateOfferLetterFile(application, normalizedAutoOffer || {});
+      offerAttachmentInfo = {
+        relativePath: generated.relativePath,
+        filename: generated.filename,
+        autoGenerated: true,
+        format: generated.format,
+        warning: generated.warning,
+        size: generated.size,
+      };
+    } else {
+      throw createHttpError(
+        'No offer letter file provided. Upload a letter or enable auto-generation before sending 003.'
+      );
+    }
+
+    if (!offerAttachmentInfo?.relativePath) {
+      throw createHttpError('Unable to prepare the offer letter file.');
+    }
+
+    application.offer.letter = {
+      filename: offerAttachmentInfo.filename,
+      path: offerAttachmentInfo.relativePath,
+      format: offerAttachmentInfo.format,
+      size: offerAttachmentInfo.size,
+    };
+    application.markModified('offer');
+
+    offerLetterBlock = `
+      <div style="margin:16px 0;padding:12px;border-left:4px solid #2563eb;background:#eff6ff;">
+        <p style="margin:0 0 8px 0;">Your offer letter is ready. Open the secure page below to download the document and submit your decision.</p>
+        <p style="margin:0;">
+          <a href="${letterPageUrl}" style="color:#2563eb;font-weight:600;" target="_blank" rel="noopener">
+            Review offer & download letter
+          </a>
+        </p>
+      </div>`;
+
+    const credentialsBlock = candidatePassword
+      ? `
+        <div style="margin-top:16px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+          <p style="margin:0 0 4px 0;font-weight:600;color:#0f172a;">Dashboard access</p>
+          <p style="margin:0;color:#0f172a;font-size:14px;">
+            Username: <strong>${application.email}</strong><br/>
+            Password: <strong>${candidatePassword}</strong><br/>
+            Dashboard: <a href="${loginUrl || '#'}" style="color:#2563eb;">${loginUrl}</a>
+          </p>
+        </div>`
+      : '';
+
+    subject = `003 | Offer letter for ${jobTitle}`;
+    html = `
+      <p>Hi ${firstName},</p>
+      <p>We are pleased to extend you an offer for <strong>${jobTitle}</strong>.</p>
+      ${offerLetterBlock}
+      <p>Please review all details and let us know your decision using the secure page above.</p>
+      ${noteBlock}
+      ${credentialsBlock}
+      <p>We look forward to having you on the team!<br/>${user?.name || 'HR Team'}</p>
+    `;
+
+    appendTimeline(application, 'Sent 003 offer email to candidate.', user?._id);
+  } else {
+    throw new Error('Unsupported workflow template. Use 001, 002, or 003.');
+  }
+
+  const plainText = html.replace(/<[^>]*>/g, ' ');
+  const emailPayload = {
+    to: application.email,
+    subject,
+    html,
+    text: plainText,
+  };
+  if (attachments.length) {
+    emailPayload.attachments = attachments;
+  }
+
+  await sendApplicantEmail(emailPayload);
+
+  const emailEntry = appendEmailLog(application, {
+    subject,
+    body: plainText,
+    userId: user?._id,
+  });
+
+  application.processed_by = user?._id;
+  await application.save();
+
+  if (populateAfterSave) {
+    await application.populate(workflowPopulateFields);
+  }
+
+  return { application, emailEntry, offerAttachment: offerAttachmentInfo };
+};
+
+const sendWorkflowEmailById = async ({
+  applicationId,
+  templateCode,
+  recruiterNote,
+  baseUrl,
+  candidateDashboardUrl,
+  offerLetterPath,
+  user,
+  autoOfferOptions,
+  populateAfterSave = true,
+}) => {
+  if (!validateObjectId(applicationId)) {
+    throw createHttpError('Invalid application ID.', 400);
+  }
+
+  const application = await JobApplication.findById(applicationId)
+    .populate('job', 'title slug status department location employment_type')
+    .populate('processed_by', 'name email')
+    .populate('offer.user', 'name email role status');
+
+  if (!application) {
+    throw createHttpError('Application not found.', 404);
+  }
+
+  return dispatchWorkflowEmail({
+    application,
+    templateCode,
+    recruiterNote,
+    baseUrl,
+    candidateDashboardUrl,
+    offerLetterPath,
+    user,
+    autoOfferOptions,
+    populateAfterSave,
+  });
+};
+
 
 const offerLetterStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, offerLetterDir),
@@ -243,36 +695,7 @@ router.get(
   }
 );
 
-router.get(
-  '/:id',
-  authenticate,
-  authorize(['job-applications.view']),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      if (!validateObjectId(id)) {
-        return res.status(400).json({ message: 'Invalid application ID.' });
-      }
-
-      const application = await JobApplication.findById(id)
-        .populate('job', 'title slug status department location employment_type')
-        .populate('processed_by', 'name email')
-        .populate('offer.user', 'name email role status');
-
-      if (!application) {
-        return res.status(404).json({ message: 'Application not found.' });
-      }
-
-      res.json(application);
-    } catch (error) {
-      console.error('Error fetching job application:', error);
-      res.status(500).json({
-        message: 'Failed to fetch job application',
-        error: error.message,
-      });
-    }
-  }
-);
+// NOTE: Route for fetching application by ID is defined near the bottom of this file
 
 router.patch(
   '/:id',
@@ -365,6 +788,374 @@ router.patch(
   }
 );
 
+router.get(
+  '/hired/list',
+  authenticate,
+  authorize(['job-applications.view']),
+  async (_req, res) => {
+    try {
+      const hires = await JobApplication.find({
+        'offer.response_status': 'accepted',
+      })
+        .sort({ 'offer.responded_at': -1 })
+        .populate('job', 'title department location employment_type')
+        .populate('offer.user', 'name email role status');
+
+      res.json({
+        hires: hires.map((application) => ({
+          id: application._id,
+          applicant_name: application.applicant_name,
+          email: application.email,
+          phone: application.phone,
+          job: application.job,
+          offer: {
+            responded_at: application.offer?.responded_at,
+            candidate_message: application.offer?.candidate_message,
+            user: application.offer?.user,
+            start_date: application.offer?.start_date,
+            end_date: application.offer?.end_date,
+            response_status: application.offer?.response_status || 'pending',
+          },
+          document_uploads: application.document_uploads || [],
+          onboarding_status: application.onboarding_status,
+          resume_url: application.resume_url,
+        })),
+      });
+    } catch (error) {
+      console.error('Error fetching hired applicants:', error);
+      res.status(500).json({ message: 'Failed to fetch hired applicants' });
+    }
+  }
+);
+
+router.get(
+  '/workflow/buckets',
+  authenticate,
+  authorize(['job-applications.manage']),
+  async (_req, res) => {
+    try {
+      const limit = 200;
+
+      const shortlistPromise = JobApplication.find({
+        email: { $exists: true, $ne: null },
+        $or: [
+          { 'shortlist.sent_at': { $exists: false } },
+          { 'shortlist.sent_at': null },
+        ],
+        status: { $in: ['new', 'in_review'] },
+      })
+        .select(
+          'applicant_name email job_title status shortlist document_request offer onboarding_status created_at'
+        )
+        .sort({ created_at: -1 })
+        .limit(limit)
+        .lean();
+
+      const documentsPromise = JobApplication.find({
+        email: { $exists: true, $ne: null },
+        'shortlist.response_status': 'accepted',
+        $or: [
+          { 'document_request.completed_at': { $exists: false } },
+          { 'document_request.completed_at': null },
+        ],
+      })
+        .select(
+          'applicant_name email job_title status shortlist document_request offer onboarding_status created_at'
+        )
+        .sort({ created_at: -1 })
+        .limit(limit)
+        .lean();
+
+      const offersPromise = JobApplication.find({
+        email: { $exists: true, $ne: null },
+        'document_request.completed_at': { $ne: null },
+        $or: [
+          { 'offer.response_status': { $exists: false } },
+          { 'offer.response_status': null },
+          { 'offer.response_status': 'pending' },
+        ],
+      })
+        .select(
+          'applicant_name email job_title status shortlist document_request offer onboarding_status created_at'
+        )
+        .sort({ created_at: -1 })
+        .limit(limit)
+        .lean();
+
+      const [shortlist, documents, offers] = await Promise.all([
+        shortlistPromise,
+        documentsPromise,
+        offersPromise,
+      ]);
+
+      const mapBucket = (items) =>
+        items.map((application) => ({
+          id: application._id?.toString?.() || application._id,
+          applicant_name: application.applicant_name,
+          email: application.email,
+          job_title: application.job_title,
+          status: application.status,
+          shortlist: application.shortlist || null,
+          document_request: application.document_request || null,
+          offer: application.offer || null,
+          onboarding_status: application.onboarding_status,
+          created_at: application.created_at,
+        }));
+
+      res.json({
+        shortlist: mapBucket(shortlist),
+        documents: mapBucket(documents),
+        offers: mapBucket(offers),
+      });
+    } catch (error) {
+      console.error('Error fetching workflow buckets:', error);
+      res.status(500).json({ message: 'Failed to fetch workflow buckets' });
+    }
+  }
+);
+
+const formatNotification = (payload) => ({
+  id: payload.id,
+  type: payload.type,
+  applicant_name: payload.applicant_name,
+  email: payload.email,
+  job_title: payload.job_title,
+  timestamp: payload.timestamp,
+  message: payload.message,
+  meta: {
+    ...(payload.meta || {}),
+    applicationId:
+      payload.applicationId?.toString?.() ||
+      payload.applicationId ||
+      payload.meta?.applicationId ||
+      null,
+  },
+});
+
+router.get(
+  '/notifications',
+  authenticate,
+  authorize(['job-applications.view']),
+  async (_req, res) => {
+    try {
+      const applications = await JobApplication.find({
+        $or: [
+          { 'shortlist.response_status': { $in: ['accepted', 'declined'] } },
+          { 'document_request.completed_at': { $ne: null } },
+          { 'document_uploads.0': { $exists: true } },
+          { 'offer.response_status': { $in: ['accepted', 'declined'] } },
+        ],
+      })
+        .select(
+          'applicant_name email job_title shortlist document_request document_uploads offer'
+        )
+        .lean();
+
+      const notifications = [];
+
+      applications.forEach((application) => {
+        if (
+          application.shortlist?.response_status &&
+          application.shortlist.response_status !== 'pending' &&
+          application.shortlist.responded_at
+        ) {
+          notifications.push(
+            formatNotification({
+              id: `${application._id}-shortlist`,
+              type:
+                application.shortlist.response_status === 'accepted'
+                  ? 'shortlist.accepted'
+                  : 'shortlist.declined',
+              applicant_name: application.applicant_name,
+              email: application.email,
+              job_title: application.job_title,
+              timestamp: application.shortlist.responded_at,
+              applicationId: application._id,
+              message:
+                application.shortlist.response_status === 'accepted'
+                  ? `${application.applicant_name} accepted the shortlist invitation`
+                  : `${application.applicant_name} declined the shortlist invitation`,
+            })
+          );
+        }
+
+        if (application.document_request?.completed_at) {
+          notifications.push(
+            formatNotification({
+              id: `${application._id}-documents`,
+              type: 'documents.completed',
+              applicant_name: application.applicant_name,
+              email: application.email,
+              job_title: application.job_title,
+              timestamp: application.document_request.completed_at,
+              applicationId: application._id,
+              message: `${application.applicant_name} submitted their documents`,
+            })
+          );
+        }
+
+        if (Array.isArray(application.document_uploads)) {
+          application.document_uploads.forEach((doc, index) => {
+            notifications.push(
+              formatNotification({
+                id: `${application._id}-doc-${index}`,
+                type: 'documents.uploaded',
+                applicant_name: application.applicant_name,
+                email: application.email,
+                job_title: application.job_title,
+                timestamp: doc.uploaded_at || application.document_request?.completed_at,
+                applicationId: application._id,
+                message: `${application.applicant_name} uploaded ${doc.label || doc.filename}`,
+                meta: { url: doc.url },
+              })
+            );
+          });
+        }
+
+        if (
+          application.offer?.response_status &&
+          application.offer.response_status !== 'pending' &&
+          application.offer.responded_at
+        ) {
+          notifications.push(
+            formatNotification({
+              id: `${application._id}-offer`,
+              type:
+                application.offer.response_status === 'accepted'
+                  ? 'offer.accepted'
+                  : 'offer.declined',
+              applicant_name: application.applicant_name,
+              email: application.email,
+              job_title: application.job_title,
+              timestamp: application.offer.responded_at,
+              applicationId: application._id,
+              message:
+                application.offer.response_status === 'accepted'
+                  ? `${application.applicant_name} accepted the offer`
+                  : `${application.applicant_name} declined the offer`,
+            })
+          );
+        }
+
+        if (application.offer?.end_date) {
+          const endDate = new Date(application.offer.end_date);
+          const now = new Date();
+          const soonWindow = new Date();
+          soonWindow.setDate(soonWindow.getDate() + 7);
+
+          if (endDate <= soonWindow && endDate >= now) {
+            notifications.push(
+              formatNotification({
+                id: `${application._id}-internship-end`,
+                type: 'internship.endingSoon',
+                applicant_name: application.applicant_name,
+                email: application.email,
+                job_title: application.job_title,
+                timestamp: endDate,
+                applicationId: application._id,
+                message: `${application.applicant_name}'s internship ends on ${endDate.toLocaleDateString()}`,
+              })
+            );
+          }
+        }
+      });
+
+      const attendanceWindow = new Date();
+      attendanceWindow.setDate(attendanceWindow.getDate() - 7);
+      const attendanceRecords = await Attendance.find({
+        $or: [
+          { check_in: { $gte: attendanceWindow } },
+          { check_out: { $gte: attendanceWindow } },
+        ],
+      })
+        .populate('application', 'applicant_name email job_title')
+        .lean();
+
+      attendanceRecords.forEach((record) => {
+        const application = record.application;
+        if (!application) return;
+
+        if (record.check_in) {
+          notifications.push(
+            formatNotification({
+              id: `${record._id}-checkin`,
+              type: 'attendance.checkIn',
+              applicant_name: application.applicant_name || 'Candidate',
+              email: application.email,
+              job_title: application.job_title,
+              timestamp: record.check_in,
+              message: `${application.applicant_name || 'Candidate'} checked in at ${new Date(
+                record.check_in
+              ).toLocaleTimeString()}`,
+              meta: { applicationId: application._id, attendanceId: record._id },
+            })
+          );
+        }
+
+        if (record.check_out) {
+          notifications.push(
+            formatNotification({
+              id: `${record._id}-checkout`,
+              type: 'attendance.checkOut',
+              applicant_name: application.applicant_name || 'Candidate',
+              email: application.email,
+              job_title: application.job_title,
+              timestamp: record.check_out,
+              message: `${application.applicant_name || 'Candidate'} checked out at ${new Date(
+                record.check_out
+              ).toLocaleTimeString()}`,
+              meta: { applicationId: application._id, attendanceId: record._id },
+            })
+          );
+        }
+      });
+
+      const sorted = notifications
+        .filter((item) => item.timestamp)
+        .sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )
+        .slice(0, 30);
+
+      res.json({ notifications: sorted });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ message: 'Failed to fetch notifications' });
+    }
+  }
+);
+
+router.get(
+  '/:id',
+  authenticate,
+  authorize(['job-applications.view']),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!validateObjectId(id)) {
+        return res.status(400).json({ message: 'Invalid application ID.' });
+      }
+
+      const application = await JobApplication.findById(id)
+        .populate('job', 'title slug status department location employment_type')
+        .populate('processed_by', 'name email')
+        .populate('offer.user', 'name email role status');
+
+      if (!application) {
+        return res.status(404).json({ message: 'Application not found.' });
+      }
+
+      res.json(application);
+    } catch (error) {
+      console.error('Error fetching job application:', error);
+      res.status(500).json({
+        message: 'Failed to fetch job application',
+        error: error.message,
+      });
+    }
+  }
+);
+
 router.delete(
   '/:id',
   authenticate,
@@ -425,6 +1216,57 @@ router.post(
 );
 
 router.post(
+  '/:id/offer-letter/generate',
+  authenticate,
+  authorize(['job-applications.manage']),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!validateObjectId(id)) {
+        return res.status(400).json({ message: 'Invalid application ID.' });
+      }
+
+      const { format = 'pdf', overrides = {} } = req.body || {};
+      const application = await JobApplication.findById(id).populate(
+        'job',
+        'title department location employment_type'
+      );
+      if (!application) {
+        return res.status(404).json({ message: 'Application not found.' });
+      }
+
+      const dataOverrides = { ...(overrides || {}) };
+      ['name', 'role', 'duration', 'date'].forEach((key) => {
+        if (req.body?.[key]) {
+          dataOverrides[key] = req.body[key];
+        }
+      });
+
+      const generated = await autoGenerateOfferLetterFile(application, {
+        format,
+        dataOverrides,
+      });
+
+      res.json({
+        message: `Offer letter generated as ${generated.format.toUpperCase()}`,
+        path: generated.relativePath,
+        filename: generated.filename,
+        format: generated.format,
+        size: generated.size,
+        templateData: generated.templateData,
+        warning: generated.warning,
+      });
+    } catch (error) {
+      console.error('Offer letter generate error:', error);
+      res.status(500).json({
+        message: 'Failed to generate offer letter',
+        error: error.message,
+      });
+    }
+  }
+);
+
+router.post(
   '/:id/workflow-email',
   authenticate,
   authorize(['job-applications.manage']),
@@ -442,7 +1284,7 @@ router.post(
         return res.status(400).json({ message: 'Invalid application ID.' });
       }
 
-      const { template, note, offerLetterPath } = req.body || {};
+      const { template, note, offerLetterPath, autoGenerateOffer } = req.body || {};
       const templateCode = (template || '').toString().trim();
 
       if (!['001', '002', '003'].includes(templateCode)) {
@@ -451,210 +1293,142 @@ router.post(
         });
       }
 
-      const application = await JobApplication.findById(id)
-        .populate('job', 'title slug status department location employment_type')
-        .populate('processed_by', 'name email')
-        .populate('offer.user', 'name email role status');
+      const baseUrl = buildCandidatePortalBase(req);
+      const candidateDashboardUrl = buildCandidateDashboardUrl(req);
 
-      if (!application) {
-        return res.status(404).json({ message: 'Application not found.' });
+      const result = await sendWorkflowEmailById({
+        applicationId: id,
+        templateCode,
+        recruiterNote: note,
+        baseUrl,
+        candidateDashboardUrl,
+        offerLetterPath,
+        user: req.user,
+        autoOfferOptions: templateCode === '003' ? autoGenerateOffer : null,
+        populateAfterSave: true,
+      });
+
+      res.json({
+        message: `Workflow email ${templateCode} sent successfully.`,
+        email: result.emailEntry,
+        application: result.application,
+        offerAttachment: result.offerAttachment,
+      });
+    } catch (error) {
+      console.error('Error sending workflow email:', error);
+      const status = error.statusCode || 500;
+      res.status(status).json({
+        message: status >= 500 ? 'Failed to send workflow email' : error.message,
+        error: error.message,
+      });
+    }
+  }
+);
+
+router.post(
+  '/workflow-email/batch',
+  authenticate,
+  authorize(['job-applications.manage']),
+  async (req, res) => {
+    try {
+      if (!isEmailConfigured()) {
+        return res.status(500).json({
+          message:
+            'Email service is not configured. Please set SMTP_* environment variables.',
+        });
       }
 
-      if (!application.email) {
+      const { template, applicationIds, note, offerLetterPath, autoGenerateOffer } =
+        req.body || {};
+      const templateCode = (template || '').toString().trim();
+
+      if (!['001', '002', '003'].includes(templateCode)) {
         return res.status(400).json({
-          message: 'Applicant does not have an email address on file.',
+          message: 'Unsupported workflow template. Use 001, 002, or 003.',
+        });
+      }
+
+      if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+        return res
+          .status(400)
+          .json({ message: 'Please select at least one applicant.' });
+      }
+
+      if (templateCode === '003' && offerLetterPath) {
+        return res.status(400).json({
+          message:
+            'Batch offer letters must be auto-generated. Remove the uploaded file selection and try again.',
         });
       }
 
       const baseUrl = buildCandidatePortalBase(req);
-      const jobTitle =
-        application.job_title || application.job?.title || 'the position';
-      const recruiterNote = (note || '').toString().trim();
+      const candidateDashboardUrl = buildCandidateDashboardUrl(req);
 
-      let subject = '';
-      let html = '';
-      let attachments = [];
-      const now = new Date();
+      const seen = new Set();
+      const invalid = [];
+      const queue = [];
 
-      if (templateCode === '001') {
-        const token = crypto.randomBytes(32).toString('hex');
-        const acceptUrl = `${baseUrl}/respond/${token}/accept`;
-        const declineUrl = `${baseUrl}/respond/${token}/decline`;
+      applicationIds.forEach((raw) => {
+        const id = (raw || '').toString().trim();
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        if (!validateObjectId(id)) {
+          invalid.push({ applicationId: id, status: 'failed', error: 'Invalid application ID.' });
+        } else {
+          queue.push(id);
+        }
+      });
 
-        application.shortlist = {
-          token,
-          sent_at: now,
-          response_status: 'pending',
-        };
-        application.onboarding_status = 'shortlisted';
-        application.status = 'shortlisted';
-
-        subject = `001 | Shortlisted for ${jobTitle}`;
-        html = `
-          <p>Hi ${application.applicant_name?.split(' ')[0] || 'there'},</p>
-          <p>Great news! You have been shortlisted for <strong>${jobTitle}</strong>.</p>
-          <p>Please confirm if you would like to continue with the next steps:</p>
-          <p>
-            <a href="${acceptUrl}">✔️ Yes, I would like to continue</a><br/>
-            <a href="${declineUrl}">✖️ No, I am not available</a>
-          </p>
-          ${
-            recruiterNote
-              ? `<p>${recruiterNote.replace(/\n/g, '<br/>')}</p>`
-              : ''
-          }
-          <p>Kind regards,<br/>${req.user?.name || 'HR Team'}</p>
-        `;
-
-        appendTimeline(
-          application,
-          'Sent 001 shortlist email to candidate.',
-          req.user?._id
-        );
+      if (queue.length === 0) {
+        return res.status(400).json({
+          message: 'Please select at least one valid applicant.',
+          results: invalid,
+        });
       }
 
-      if (templateCode === '002') {
-        if (!application.shortlist || application.shortlist.response_status !== 'accepted') {
-          return res.status(400).json({
-            message:
-              'Cannot send 002 email until the applicant accepts the shortlist invitation.',
+      if (queue.length > 200) {
+        return res.status(400).json({
+          message: 'Please process at most 200 applicants at a time.',
+        });
+      }
+
+      const results = [...invalid];
+      for (const applicationId of queue) {
+        try {
+          await sendWorkflowEmailById({
+            applicationId,
+            templateCode,
+            recruiterNote: note,
+            baseUrl,
+            candidateDashboardUrl,
+            offerLetterPath: templateCode === '003' ? null : offerLetterPath,
+            user: req.user,
+            autoOfferOptions: templateCode === '003' ? autoGenerateOffer ?? true : null,
+            populateAfterSave: false,
+          });
+          results.push({ applicationId, status: 'sent' });
+        } catch (error) {
+          results.push({
+            applicationId,
+            status: 'failed',
+            error: error.message,
           });
         }
-
-        const token = crypto.randomBytes(32).toString('hex');
-        const uploadUrl = `${baseUrl}/documents/${token}`;
-
-        application.document_request = {
-          token,
-          sent_at: now,
-          completed_at: application.document_request?.completed_at || null,
-        };
-        application.onboarding_status = 'documents-requested';
-        application.status = application.status === 'offered' ? application.status : 'in_review';
-
-        subject = `002 | Documents required for ${jobTitle}`;
-        html = `
-          <p>Hi ${application.applicant_name?.split(' ')[0] || 'there'},</p>
-          <p>Thank you for confirming your interest in <strong>${jobTitle}</strong>.</p>
-          <p>Please upload the requested identification documents (Aadhaar, passport, etc.) using the secure link below:</p>
-          <p><a href="${uploadUrl}">Upload documents</a></p>
-          ${
-            recruiterNote
-              ? `<p>${recruiterNote.replace(/\n/g, '<br/>')}</p>`
-              : ''
-          }
-          <p>Let us know if you have any questions.<br/>${req.user?.name || 'HR Team'}</p>
-        `;
-
-        appendTimeline(
-          application,
-          'Sent 002 document request email to candidate.',
-          req.user?._id
-        );
       }
 
-      if (templateCode === '003') {
-      if (!application.document_request || !application.document_request.completed_at) {
-        return res.status(400).json({
-          message:
-            'Cannot send 003 email until the applicant uploads their documents.',
-        });
-      }
-
-      if (application.offer?.response_status === 'accepted') {
-        return res.status(400).json({
-          message: 'Offer has already been accepted by the candidate.',
-        });
-      }
-
-      const token = crypto.randomBytes(32).toString('hex');
-      const acceptUrl = `${baseUrl}/offer/${token}/accept`;
-      const declineUrl = `${baseUrl}/offer/${token}/decline`;
-
-        application.offer = {
-          ...(application.offer || {}),
-          token,
-          sent_at: now,
-          response_status: 'pending',
-        };
-        application.onboarding_status = 'offer-sent';
-        application.status = 'offered';
-
-        subject = `003 | Offer letter for ${jobTitle}`;
-        let offerLetterBlock = '';
-
-        if (offerLetterPath) {
-          try {
-            const attachment = resolveUploadAttachment(offerLetterPath);
-            if (attachment) {
-              attachments.push(attachment);
-              offerLetterBlock = `<p>Your offer letter is attached to this email.</p>`;
-            }
-          } catch (error) {
-            return res.status(400).json({ message: error.message });
-          }
-        }
-
-        html = `
-          <p>Hi ${application.applicant_name?.split(' ')[0] || 'there'},</p>
-          <p>We are pleased to extend you an offer for <strong>${jobTitle}</strong>.</p>
-          ${offerLetterBlock}
-          <p>Please let us know your decision by selecting one of the options below:</p>
-          <p>
-            <a href="${acceptUrl}">✔️ Accept the offer</a><br/>
-            <a href="${declineUrl}">✖️ Decline the offer</a>
-          </p>
-          ${
-            recruiterNote
-              ? `<p>${recruiterNote.replace(/\n/g, '<br/>')}</p>`
-              : ''
-          }
-          <p>We look forward to having you on the team!<br/>${req.user?.name || 'HR Team'}</p>
-        `;
-
-        appendTimeline(
-          application,
-          'Sent 003 offer email to candidate.',
-          req.user?._id
-        );
-      }
-
-      await sendApplicantEmail({
-        to: application.email,
-        subject,
-        html,
-        text: html.replace(/<[^>]*>/g, ' '),
-        attachments,
-      });
-
-      const emailEntry = appendEmailLog(application, {
-        subject,
-        body: (html || '').replace(/<[^>]*>/g, ' '),
-        userId: req.user?._id,
-      });
-
-      application.processed_by = req.user?._id;
-
-      await application.save();
-
-      await application.populate([
-        {
-          path: 'job',
-          select: 'title slug status department location employment_type',
-        },
-        { path: 'processed_by', select: 'name email' },
-        { path: 'offer.user', select: 'name email role status' },
-      ]);
-
+      const sentCount = results.filter((item) => item.status === 'sent').length;
       res.json({
-        message: `Workflow email ${templateCode} sent successfully.`,
-        email: emailEntry,
-        application,
+        message: `Processed ${sentCount} of ${results.length} workflow emails.`,
+        results,
       });
     } catch (error) {
-      console.error('Error sending workflow email:', error);
-      res.status(500).json({
-        message: 'Failed to send workflow email',
+      console.error('Error sending batch workflow emails:', error);
+      const status = error.statusCode || 500;
+      res.status(status).json({
+        message:
+          status >= 500
+            ? 'Failed to process batch workflow email'
+            : error.message,
         error: error.message,
       });
     }

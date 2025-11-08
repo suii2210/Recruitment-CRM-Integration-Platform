@@ -8,6 +8,7 @@ import {
   Zap,
   Briefcase,
   UserCheck,
+  Award,
 } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 
@@ -27,6 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onNavig
     { id: 'blogs', icon: FileText, label: 'Blogs', permission: 'blogs.view' },
     { id: 'careers', icon: Briefcase, label: 'Careers', permission: 'jobs.view' },
     { id: 'applicants', icon: UserCheck, label: 'Applicants', permission: 'job-applications.view' },
+    { id: 'tasks', icon: FileText, label: 'Tasks', permission: 'job-applications.manage' },
+    { id: 'hires', icon: Award, label: 'Hires', permission: 'job-applications.view' },
     { id: 'users', icon: Users, label: 'Users', permission: 'users.view' },
     { id: 'roles', icon: Shield, label: 'Roles', permission: 'roles.view' },
     { id: 'profile', icon: User, label: 'Profile', permission: null },

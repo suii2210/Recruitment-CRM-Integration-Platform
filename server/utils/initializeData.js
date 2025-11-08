@@ -118,6 +118,12 @@ const defaultRoles = [
       'dashboard.view', 'blogs.view', 'jobs.view', 'job-applications.view', 'contents.view', 'home-contents.view', 'reports.view'
     ],
     isDefault: true
+  },
+  {
+    name: 'Candidate',
+    description: 'Limited candidate access focused on assigned tasks and attendance',
+    permissions: [],
+    isDefault: true
   }
 ];
 
@@ -138,13 +144,26 @@ export const initializeDefaultData = async () => {
     } else {
       // Update existing roles with new permissions
       for (const defaultRole of defaultRoles) {
-        const existingRole = await Role.findOne({ name: defaultRole.name });
+        let existingRole = await Role.findOne({ name: defaultRole.name });
         if (existingRole) {
           existingRole.permissions = defaultRole.permissions;
           await existingRole.save();
           console.log(`✅ Updated role: ${defaultRole.name}`);
         }
       }
+    }
+
+    // Ensure candidate role exists
+    const candidateRoleExists = await Role.findOne({ name: 'Candidate' });
+    if (!candidateRoleExists) {
+      const candidateRole = new Role({
+        name: 'Candidate',
+        description: 'Limited candidate access focused on tasks and attendance tracking',
+        permissions: [],
+        isDefault: true,
+      });
+      await candidateRole.save();
+      console.log('�o. Created role: Candidate');
     }
 
     // Initialize super admin user

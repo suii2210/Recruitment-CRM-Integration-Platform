@@ -107,6 +107,8 @@ export const useUserStore = create<UserStore>((set, get) => ({
       
       console.log('Normalized user with social links:', normalizedUser);
       
+      const isCandidate = (normalizedUser.role || '').toLowerCase() === 'candidate';
+
       setAuthToken(token);
       set({ 
         currentUser: normalizedUser, 
@@ -116,9 +118,12 @@ export const useUserStore = create<UserStore>((set, get) => ({
         userPermissions: permissions || []
       });
       
-      // Fetch additional data
-      await get().fetchRoles();
-      await get().fetchPermissions();
+      if (isCandidate) {
+        set({ roles: [], permissions: [] });
+      } else {
+        await get().fetchRoles();
+        await get().fetchPermissions();
+      }
       
       return true;
     } catch (error: any) {
@@ -158,6 +163,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
         roleId: user.roleId?._id || user.roleId,
         socialLinks: user.socialLinks || { twitter: '', linkedin: '' }
       };
+      const isCandidate = (normalizedUser.role || '').toLowerCase() === 'candidate';
       
       console.log('Normalized user with social links:', normalizedUser);
       
@@ -169,9 +175,12 @@ export const useUserStore = create<UserStore>((set, get) => ({
         userPermissions: permissions || []
       });
       
-      // Fetch additional data
-      await get().fetchRoles();
-      await get().fetchPermissions();
+      if (isCandidate) {
+        set({ roles: [], permissions: [] });
+      } else {
+        await get().fetchRoles();
+        await get().fetchPermissions();
+      }
     } catch (error) {
       removeAuthToken();
       set({ 

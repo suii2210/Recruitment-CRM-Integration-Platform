@@ -147,6 +147,14 @@ const jobApplicationSchema = new mongoose.Schema(
       responded_at: { type: Date },
       candidate_message: { type: String, trim: true },
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      start_date: { type: Date },
+      end_date: { type: Date },
+      letter: {
+        filename: { type: String, trim: true },
+        path: { type: String, trim: true },
+        format: { type: String, trim: true },
+        size: { type: Number },
+      },
     },
   },
   {
