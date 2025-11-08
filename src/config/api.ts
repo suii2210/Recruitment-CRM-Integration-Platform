@@ -61,6 +61,7 @@ export const API_ENDPOINTS = {
   },
   TASKS: {
     BASE: `${API_BASE_URL}/tasks`,
+    BY_ID: (id: string) => `${API_BASE_URL}/tasks/${id}`,
     SHARE: (id: string) => `${API_BASE_URL}/tasks/${id}/share`,
     MINE: `${API_BASE_URL}/tasks/my`,
     SUBMIT: (id: string) => `${API_BASE_URL}/tasks/${id}/submissions`,

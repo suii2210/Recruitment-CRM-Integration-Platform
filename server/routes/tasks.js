@@ -6,27 +6,67 @@ import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const mapAssignees = async (assigneeIds = []) => {
+const validateObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+const basePopulate = [
+  { path: 'assigned_candidates.application', select: 'applicant_name email job_title' },
+  { path: 'assigned_candidates.user', select: 'name email avatar' },
+  { path: 'created_by', select: 'name email' },
+];
+
+const populateTask = (query) => query.populate(basePopulate);
+
+const populateTaskDoc = async (task) => {
+  if (!task) return task;
+  await task.populate(basePopulate);
+  return task;
+};
+
+const mapAssignees = async (assigneeIds = [], previousAssignments = []) => {
+  const previous = previousAssignments.map((assignment) =>
+    assignment?.toObject ? assignment.toObject() : assignment
+  );
   const ids = assigneeIds
-    .map((id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null))
+    .map((id) => (validateObjectId(id) ? new mongoose.Types.ObjectId(id) : null))
     .filter(Boolean);
 
-  const applications = await JobApplication.find({ _id: { $in: ids } }).select('offer user applicant_name email offer user');
+  if (!ids.length) return [];
 
-  return applications.map((application) => ({
-    application: application._id,
-    user: application.offer?.user || null,
-    status: 'pending',
-  }));
+  const applications = await JobApplication.find({ _id: { $in: ids } })
+    .select('offer applicant_name email job_title')
+    .populate('offer.user', '_id name email');
+
+  return applications
+    .map((application) => {
+      const offerUser = application.offer?.user;
+      const userId =
+        typeof offerUser === 'object'
+          ? offerUser?._id || offerUser?.id
+          : offerUser || null;
+
+      if (!userId) {
+        return null;
+      }
+
+      const existing = previous.find(
+        (assignment) =>
+          assignment?.application?.toString() === application._id.toString()
+      );
+
+      return {
+        application: application._id,
+        user: userId,
+        status: existing?.status || 'pending',
+        shared_at: existing?.shared_at,
+        submission: existing?.submission,
+      };
+    })
+    .filter(Boolean);
 };
 
 router.get('/', authenticate, authorize(['job-applications.view']), async (_req, res) => {
   try {
-    const tasks = await Task.find()
-      .sort({ created_at: -1 })
-      .populate('assigned_candidates.application', 'applicant_name email job_title')
-      .populate('assigned_candidates.user', 'name email')
-      .populate('created_by', 'name email');
+    const tasks = await populateTask(Task.find().sort({ created_at: -1 }));
 
     res.json(tasks);
   } catch (error) {
@@ -37,7 +77,15 @@ router.get('/', authenticate, authorize(['job-applications.view']), async (_req,
 
 router.post('/', authenticate, authorize(['job-applications.manage']), async (req, res) => {
   try {
-    const { title, description, due_date, attachments = [], assignees = [] } = req.body;
+    const {
+      title,
+      description,
+      due_date,
+      attachments = [],
+      assignees = [],
+      label,
+      status,
+    } = req.body;
 
     const assignments = await mapAssignees(assignees);
 
@@ -46,9 +94,13 @@ router.post('/', authenticate, authorize(['job-applications.manage']), async (re
       description,
       due_date,
       attachments,
+      label,
       assigned_candidates: assignments,
+      status: status || 'draft',
       created_by: req.user._id,
     });
+
+    await populateTaskDoc(task);
 
     res.status(201).json(task);
   } catch (error) {
@@ -59,7 +111,7 @@ router.post('/', authenticate, authorize(['job-applications.manage']), async (re
 
 router.post('/:id/share', authenticate, authorize(['job-applications.manage']), async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    if (!validateObjectId(req.params.id)) {
       return res.status(400).json({ message: 'Invalid task ID' });
     }
 
@@ -76,11 +128,70 @@ router.post('/:id/share', authenticate, authorize(['job-applications.manage']), 
     }));
 
     await task.save();
+    await populateTaskDoc(task);
 
     res.json(task);
   } catch (error) {
     console.error('Error sharing task:', error);
     res.status(500).json({ message: 'Failed to share task' });
+  }
+});
+
+router.patch('/:id', authenticate, authorize(['job-applications.manage']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    const updatableFields = ['title', 'description', 'due_date', 'status', 'label'];
+
+    updatableFields.forEach((field) => {
+      if (typeof req.body[field] !== 'undefined') {
+        task[field] = req.body[field];
+      }
+    });
+
+    if (Array.isArray(req.body.attachments)) {
+      task.attachments = req.body.attachments;
+    }
+
+    if (Array.isArray(req.body.assignees)) {
+      task.assigned_candidates = await mapAssignees(req.body.assignees, task.assigned_candidates);
+    }
+
+    await task.save();
+    await populateTaskDoc(task);
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ message: 'Failed to update task' });
+  }
+});
+
+router.delete('/:id', authenticate, authorize(['job-applications.manage']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!validateObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    await task.deleteOne();
+    res.json({ message: 'Task deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ message: 'Failed to delete task' });
   }
 });
 

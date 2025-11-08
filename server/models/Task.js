@@ -34,7 +34,7 @@ const assignmentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'assigned', 'in_progress', 'submitted', 'completed'],
+      enum: ['pending', 'assigned', 'in_progress', 'in_review', 'submitted', 'completed'],
       default: 'pending',
     },
     shared_at: { type: Date },
@@ -55,8 +55,13 @@ const taskSchema = new mongoose.Schema(
     due_date: { type: Date },
     status: {
       type: String,
-      enum: ['draft', 'assigned', 'in_progress', 'completed', 'archived'],
+      enum: ['draft', 'assigned', 'in_progress', 'in_review', 'completed', 'archived'],
       default: 'draft',
+    },
+    label: {
+      type: String,
+      trim: true,
+      maxlength: 60,
     },
     attachments: [attachmentSchema],
     assigned_candidates: [assignmentSchema],
